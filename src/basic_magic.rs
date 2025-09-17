@@ -1,0 +1,287 @@
+use kc::Corpus;
+
+#[must_use]
+pub fn apply(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
+    corpus = apply_tg(corpus, old, new);
+    corpus
+}
+
+fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
+    let num_trigrams = corpus.trigrams.len();
+
+    for i in 0..num_trigrams {
+        if true {
+            let tg = corpus.uncorpus_trigram(i);
+
+            let (mut left, mut lrep) = (None, None);
+            let (mut right, mut rrep) = (None, None);
+            let (mut both, mut brep) = (None, None);
+
+            if tg[0] == old[1] {
+                left = Some([old[0], tg[0], tg[1], tg[2]]);
+                lrep = Some([new[1], tg[1], tg[2]]);
+            }
+            if tg[2] == old[0] {
+                right = Some([tg[0], tg[1], tg[2], old[1]]);
+                rrep = Some([tg[0], tg[1], new[0]]);
+                if let (Some(lrep), Some(left)) = (lrep, left) {
+                    both = Some([left[0], left[1], left[2], left[3], old[1]]);
+                    brep = Some([lrep[0], lrep[1], new[0]]);
+                }
+            }
+
+            let bcount = match (left, right, both) {
+                (Some(_left), Some(_right), Some(both)) => {
+                    let corpus_index = corpus.corpus_pentagram(&both);
+                    corpus.pentagrams[corpus_index]
+                }
+                _ => 0,
+            };
+            let lcount = match left {
+                Some(left) => {
+                    let corpus_index = corpus.corpus_quadgram(&left);
+                    corpus.quadgrams[corpus_index] - bcount
+                }
+                _ => 0,
+            };
+            let rcount = match right {
+                Some(right) => {
+                    let corpus_index = corpus.corpus_quadgram(&right);
+                    corpus.quadgrams[corpus_index] - bcount
+                }
+                _ => 0,
+            };
+
+            if let Some(brep) = brep {
+                let idx = corpus.corpus_trigram(&brep);
+                corpus.trigrams[idx] += bcount;
+
+                let new_sg = &[brep[0], brep[2]];
+                let new_sg_idx = corpus.corpus_bigram(new_sg);
+                corpus.skipgrams[new_sg_idx] += bcount;
+            }
+            if let Some(lrep) = lrep {
+                let idx = corpus.corpus_trigram(&lrep);
+                corpus.trigrams[idx] += lcount;
+
+                let new_sg = &[lrep[0], lrep[2]];
+                let new_sg_idx = corpus.corpus_bigram(new_sg);
+                corpus.skipgrams[new_sg_idx] += lcount;
+            }
+            if let Some(rrep) = rrep {
+                let idx = corpus.corpus_trigram(&rrep);
+                corpus.trigrams[idx] += rcount;
+
+                let new_sg = &[rrep[0], rrep[2]];
+                let new_sg_idx = corpus.corpus_bigram(new_sg);
+                corpus.skipgrams[new_sg_idx] += rcount;
+            }
+
+            corpus.trigrams[i] -= lcount + rcount + bcount;
+
+            let new_sg = &[tg[0], tg[2]];
+            let new_sg_idx = corpus.corpus_bigram(new_sg);
+            corpus.skipgrams[new_sg_idx] -= lcount + rcount + bcount;
+        }
+    }
+
+    for i in 0..num_trigrams {
+        if true {
+            let tg = corpus.uncorpus_trigram(i);
+            match tg[..] {
+                [_, _, suffix] if tg[0] == old[0] && tg[1] == old[1] => {
+                    let freq = corpus.trigrams[i];
+                    corpus.trigrams[i] -= freq;
+                    let new_tg = &[new[0], new[1], suffix];
+                    let new_tg_idx = corpus.corpus_trigram(new_tg);
+                    corpus.trigrams[new_tg_idx] += freq;
+
+                    // XXX: Half-assed skipgrams, assumes every corpus char was valid.
+                    let old_sg_idx = corpus.corpus_bigram(&[tg[0], tg[2]]);
+                    corpus.skipgrams[old_sg_idx] -= freq;
+                    let new_sg = &[new[0], suffix];
+                    let new_sg_idx = corpus.corpus_bigram(new_sg);
+                    corpus.skipgrams[new_sg_idx] += freq;
+                }
+                _ => {}
+            }
+
+            match tg[..] {
+                [prefix, _, _] if tg[1] == old[0] && tg[2] == old[1] => {
+                    let freq = corpus.trigrams[i];
+                    corpus.trigrams[i] -= freq;
+                    let new_tg = &[prefix, new[0], new[1]];
+                    let new_tg_idx = corpus.corpus_trigram(new_tg);
+                    corpus.trigrams[new_tg_idx] += freq;
+
+                    // XXX: Half-assed skipgrams, assumes every corpus char was valid.
+                    let old_sg_idx = corpus.corpus_bigram(&[tg[0], tg[2]]);
+                    corpus.skipgrams[old_sg_idx] -= freq;
+                    let new_sg = &[prefix, new[1]];
+                    let new_sg_idx = corpus.corpus_bigram(new_sg);
+                    corpus.skipgrams[new_sg_idx] += freq;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    corpus
+}
+
+#[cfg(test)]
+fn count_char(corpus: &Corpus, c: char) -> u32 {
+    corpus.chars[corpus.corpus_char(c)]
+}
+
+#[cfg(test)]
+fn count_bigram(corpus: &Corpus, bg: [char; 2]) -> u32 {
+    corpus.bigrams[corpus.corpus_bigram(&bg)]
+}
+
+#[cfg(test)]
+fn count_trigram(corpus: &Corpus, tg: [char; 3]) -> u32 {
+    corpus.trigrams[corpus.corpus_trigram(&tg)]
+}
+
+#[cfg(test)]
+fn count_skipgram(corpus: &Corpus, sg: [char; 2]) -> u32 {
+    corpus.skipgrams[corpus.corpus_bigram(&sg)]
+}
+
+#[cfg(test)]
+fn verify_corpus_si_pre(corpus: Corpus) {
+    // Monograms
+    assert_eq!(count_char(&corpus, 'e'), 50497522);
+    assert_eq!(count_char(&corpus, '†'), 0);
+
+    // // Bigrams
+    assert_eq!(count_bigram(&corpus, ['h', 'e']), 8729312);
+    assert_eq!(count_bigram(&corpus, ['h', '†']), 0);
+
+    // Trigrams
+    assert_eq!(count_trigram(&corpus, ['t', 'h', 'e']), 6802477);
+    assert_eq!(count_trigram(&corpus, ['t', 'h', '†']), 0);
+    assert_eq!(count_trigram(&corpus, ['h', 'e', ' ']), 5421447);
+    assert_eq!(count_trigram(&corpus, ['h', '†', ' ']), 0);
+    assert_eq!(count_trigram(&corpus, ['e', ' ', 'q']), 40503);
+    assert_eq!(count_trigram(&corpus, ['†', ' ', 'q']), 0);
+    assert_eq!(count_trigram(&corpus, ['e', ' ', 'l']), 438196);
+    assert_eq!(count_trigram(&corpus, ['†', ' ', 'l']), 0);
+
+    // Skipgrams
+    assert_eq!(count_skipgram(&corpus, ['t', 'e']), 7955798);
+    assert_eq!(count_skipgram(&corpus, ['t', '†']), 0);
+    assert_eq!(count_skipgram(&corpus, ['e', 'q']), 45074);
+    assert_eq!(count_skipgram(&corpus, ['†', 'q']), 0);
+    assert_eq!(count_skipgram(&corpus, ['e', 'l']), 1300716);
+    assert_eq!(count_skipgram(&corpus, ['†', 'l']), 0);
+
+    // Everything else the same
+    assert_eq!(count_bigram(&corpus, ['v', 'e']), 2978051);
+    assert_eq!(count_bigram(&corpus, ['e', 'r']), 6377359);
+    assert_eq!(count_trigram(&corpus, ['o', 'v', 'e']), 496824);
+    assert_eq!(count_trigram(&corpus, ['v', 'e', 'r']), 934355);
+    assert_eq!(count_trigram(&corpus, ['e', 'r', ' ']), 2089364);
+    assert_eq!(count_skipgram(&corpus, ['o', 'e']), 3663662);
+    assert_eq!(count_skipgram(&corpus, ['e', ' ']), 10441564);
+}
+
+#[cfg(test)]
+fn verify_corpus_si_post(corpus: Corpus) {
+    // // Monograms
+    // assert_eq!(count_char(&corpus, 'e'), 41768210);
+    // assert_eq!(count_char(&corpus, '†'), 8729312);
+
+    // // // Bigrams
+    // assert_eq!(count_bigram(&corpus, ['h', 'e']), 0);
+    // assert_eq!(count_bigram(&corpus, ['h', '†']), 8729312);
+    // assert_eq!(count_bigram(&corpus, ['†', 'e']), 40073);
+    // assert_eq!(count_bigram(&corpus, ['†', 'a']), 248245);
+    // assert_eq!(count_bigram(&corpus, ['†', 'i']), 253922);
+    // assert_eq!(count_bigram(&corpus, ['†', 'o']), 12705);
+    // assert_eq!(count_bigram(&corpus, ['†', ' ']), 5421447);
+
+    // Trigrams
+    assert_eq!(count_trigram(&corpus, ['t', 'h', 'e']), 0);
+    assert_eq!(count_trigram(&corpus, ['t', 'h', '†']), 6802477);
+    assert_eq!(count_trigram(&corpus, ['h', 'e', ' ']), 0);
+    assert_eq!(count_trigram(&corpus, ['h', '†', ' ']), 5421447);
+    assert_eq!(count_trigram(&corpus, ['e', ' ', 'q']), 21049);
+    assert_eq!(count_trigram(&corpus, ['†', ' ', 'q']), 19454);
+    assert_eq!(count_trigram(&corpus, ['e', ' ', 'l']), 210202);
+    assert_eq!(count_trigram(&corpus, ['†', ' ', 'l']), 227994);
+
+    // Skipgrams
+    assert_eq!(count_skipgram(&corpus, ['t', 'e']), 1153321);
+    assert_eq!(count_skipgram(&corpus, ['t', '†']), 6802477);
+    assert_eq!(count_skipgram(&corpus, ['e', 'q']), 25582);
+    assert_eq!(count_skipgram(&corpus, ['†', 'q']), 19492);
+    assert_eq!(count_skipgram(&corpus, ['e', 'l']), 977172);
+    assert_eq!(count_skipgram(&corpus, ['†', 'l']), 323544);
+
+    // Everything else the same
+    // assert_eq!(count_bigram(&corpus, ['v', 'e']), 2978051);
+    // assert_eq!(count_bigram(&corpus, ['e', 'r']), 5219156);
+    // assert_eq!(count_bigram(&corpus, ['e', 'o']), 252440);
+    // assert_eq!(count_bigram(&corpus, ['e', 'i']), 291015);
+    // assert_eq!(count_bigram(&corpus, ['e', 'h']), 85972);
+    assert_eq!(count_trigram(&corpus, ['o', 'v', 'e']), 496824);
+    assert_eq!(count_trigram(&corpus, ['v', 'e', 'r']), 934355);
+    assert_eq!(count_trigram(&corpus, ['e', 'r', ' ']), 1580390);
+    assert_eq!(count_skipgram(&corpus, ['o', 'e']), 3660890);
+
+    // Requires adjustments based on pentagrams to handle skips over invalid corpus chars
+    // assert_eq!(count_skipgram(&corpus, ['e', ' ']), 9021099);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn si_pre() {
+        let b = fs::read("./corpora/shai-iweb.corpus").expect("couldn't read corpus file");
+        let corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
+        verify_corpus_si_pre(corpus);
+    }
+
+    #[test]
+    fn si_post() {
+        let b = fs::read("./corpora/shai-iweb.corpus").expect("couldn't read corpus file");
+        let mut corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
+        corpus = apply(corpus, ['h', 'e'], ['h', '†']);
+        verify_corpus_si_post(corpus);
+    }
+
+    #[test]
+    fn si_ref() {
+        let b = fs::read("./corpora/shai-iweb-he.corpus").expect("couldn't read corpus file");
+        let corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
+        verify_corpus_si_post(corpus);
+    }
+
+    /// XXX: Can OOM in release-mode.
+    #[ignore]
+    #[test]
+    fn si_compare_all_trigrams() {
+        let b = fs::read("./corpora/shai-iweb.corpus").expect("couldn't read corpus file");
+        let mut corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
+        corpus = apply(corpus, ['h', 'e'], ['h', '†']);
+
+        let b = fs::read("./corpora/shai-iweb-he.corpus").expect("couldn't read corpus file");
+        let ref_corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
+
+        assert_eq!(ref_corpus.trigrams, corpus.trigrams);
+
+        // let num_trigrams = corpus.trigrams.len();
+        // assert_eq!(ref_corpus.trigrams.len(), num_trigrams);
+        // for i in 0..num_trigrams {
+        //     let tg = corpus.uncorpus_trigram(i);
+        //     let ref_tg_idx = ref_corpus.corpus_trigram(&[tg[0], tg[1], tg[2]]);
+        //     // println!("{:?}", tg);
+        //     assert_eq!(corpus.trigrams[i], ref_corpus.trigrams[ref_tg_idx]);
+        // }
+    }
+}
