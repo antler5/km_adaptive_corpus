@@ -16,14 +16,14 @@ use kc::Corpus;
 
 /// Specialized methods implemented per expansion-length to use generic [Expansion] methods.
 trait ExpansionBase<N> {
-    fn get_count(&self, corpus: &Corpus) -> u32;
+    fn get_count(&mut self, corpus: &Corpus) -> u32;
 }
 
 /// Generic methods implemented per ngram-length but abstracted over expansion-length via
 /// [ExpansionBase].
 trait Expansion<N>: ExpansionBase<N> {
-    fn add_count(&self, corpus: &mut Corpus);
-    fn set_count(&mut self, corpus: &Corpus);
+    fn new(old: N, new: [char; 3]) -> Self;
+    fn add_count(&mut self, corpus: &mut Corpus);
     fn add_boundary_ngrams(&self, corpus: &mut Corpus, idx: u32, new: [char; 2], old: [char; 2]);
 }
 
@@ -39,15 +39,19 @@ struct TrigramExpansion<N> {
 
 impl ExpansionBase<[char; 4]> for TrigramExpansion<[char; 4]> {
     /// Count quadgrams.
-    fn get_count(&self, corpus: &Corpus) -> u32 {
-        corpus.quadgrams[corpus.corpus_quadgram(&self.old)]
+    fn get_count(&mut self, corpus: &Corpus) -> u32 {
+        *self
+            .count
+            .get_or_insert_with(|| corpus.quadgrams[corpus.corpus_quadgram(&self.old)])
     }
 }
 
 impl ExpansionBase<[char; 5]> for TrigramExpansion<[char; 5]> {
     /// Count pentagrams.
-    fn get_count(&self, corpus: &Corpus) -> u32 {
-        corpus.pentagrams[corpus.corpus_pentagram(&self.old)]
+    fn get_count(&mut self, corpus: &Corpus) -> u32 {
+        *self
+            .count
+            .get_or_insert_with(|| corpus.pentagrams[corpus.corpus_pentagram(&self.old)])
     }
 }
 
@@ -56,21 +60,24 @@ impl<N> Expansion<N> for TrigramExpansion<N>
 where
     TrigramExpansion<N>: ExpansionBase<N>,
 {
+    fn new(old: N, new: [char; 3]) -> Self {
+        TrigramExpansion {
+            old,
+            new,
+            count: None,
+        }
+    }
+
     /// Add `self.count` to trigram `self.new` (and eqiv. skipgram).
-    fn add_count(&self, corpus: &mut Corpus) {
+    fn add_count(&mut self, corpus: &mut Corpus) {
         let idx = corpus.corpus_trigram(&self.new);
-        corpus.trigrams[idx] += self.count.unwrap();
+        corpus.trigrams[idx] += self.get_count(corpus);
 
         // Skipgrams
         // XXX: Half-assed, assumes all corpus chars are valid.
         let new_sg = &[self.new[0], self.new[2]];
         let new_sg_idx = corpus.corpus_bigram(new_sg);
-        corpus.skipgrams[new_sg_idx] += self.count.unwrap();
-    }
-
-    /// Set `self.count` via `self.get_count()`.
-    fn set_count(&mut self, corpus: &Corpus) {
-        self.count = Some(self.get_count(corpus));
+        corpus.skipgrams[new_sg_idx] += self.get_count(corpus);
     }
 
     /// `TODO`
@@ -89,30 +96,28 @@ pub fn apply(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
 fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
     let num_trigrams = corpus.trigrams.len();
 
+    // Non-boundary ngrams
     for i in 0..num_trigrams {
         if true {
             let tg = corpus.uncorpus_trigram(i);
             let (mut left, mut right, mut both) = (None, None, None);
 
             if tg[0] == old[1] {
-                left = Some(TrigramExpansion {
-                    old: [old[0], tg[0], tg[1], tg[2]],
-                    new: [new[1], tg[1], tg[2]],
-                    corpus: Default::default(),
-                });
+                left = Some(TrigramExpansion::new(
+                    [old[0], tg[0], tg[1], tg[2]],
+                    [new[1], tg[1], tg[2]],
+                ));
             }
             if tg[2] == old[0] {
-                right = Some(TrigramExpansion {
-                    old: [tg[0], tg[1], tg[2], old[1]],
-                    new: [tg[0], tg[1], new[0]],
-                    count: Default::default(),
-                });
+                right = Some(TrigramExpansion::new(
+                    [tg[0], tg[1], tg[2], old[1]],
+                    [tg[0], tg[1], new[0]],
+                ));
                 if let Some(ref left) = left {
-                    both = Some(TrigramExpansion {
-                        old: [left.old[0], left.old[1], left.old[2], left.old[3], old[1]],
-                        new: [left.new[0], left.new[1], new[0]],
-                        count: Default::default(),
-                    });
+                    both = Some(TrigramExpansion::new(
+                        [left.old[0], left.old[1], left.old[2], left.old[3], old[1]],
+                        [left.new[0], left.new[1], new[0]],
+                    ));
                 }
             }
 
@@ -121,7 +126,6 @@ fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
                     $($exp.as_mut().map(|x| x.$method(&mut corpus));)*
                 };
             }
-            call!(set_count, left, right, both);
             call!(add_count, left, right, both);
 
             let sum = right.as_mut().and_then(|x| x.count).unwrap_or(0)
@@ -137,6 +141,7 @@ fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
         }
     }
 
+    // Boundary ngrams
     for i in 0..num_trigrams {
         let tg = corpus.uncorpus_trigram(i);
 
