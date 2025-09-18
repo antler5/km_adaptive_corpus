@@ -23,11 +23,12 @@ trait ExpansionBase<N> {
 /// [ExpansionBase].
 trait Expansion<N>: ExpansionBase<N> {
     fn new(old: N, new: [char; 3]) -> Self;
-    fn add_count(&mut self, corpus: &mut Corpus);
+    fn add_count(&mut self, offset: u32, corpus: &mut Corpus);
     fn add_boundary_ngrams(&self, corpus: &mut Corpus, idx: u32, new: [char; 2], old: [char; 2]);
 }
 
 /// Expansions derived from trigrams.
+#[derive(Debug, Clone)]
 struct TrigramExpansion<N> {
     /// Four to five character expansion derived from a modified trigram.
     old: N,
@@ -69,15 +70,15 @@ where
     }
 
     /// Add `self.count` to trigram `self.new` (and eqiv. skipgram).
-    fn add_count(&mut self, corpus: &mut Corpus) {
+    fn add_count(&mut self, offset: u32, corpus: &mut Corpus) {
         let idx = corpus.corpus_trigram(&self.new);
-        corpus.trigrams[idx] += self.get_count(corpus);
+        corpus.trigrams[idx] += self.get_count(corpus) + offset;
 
         // Skipgrams
         // XXX: Half-assed, assumes all corpus chars are valid.
         let new_sg = &[self.new[0], self.new[2]];
         let new_sg_idx = corpus.corpus_bigram(new_sg);
-        corpus.skipgrams[new_sg_idx] += self.get_count(corpus);
+        corpus.skipgrams[new_sg_idx] += self.get_count(corpus) + offset;
     }
 
     /// `TODO`
@@ -102,17 +103,20 @@ fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
             let tg = corpus.uncorpus_trigram(i);
             let (mut left, mut right, mut both) = (None, None, None);
 
+            // If the trigram starts with the old bigram suffix, left
             if tg[0] == old[1] {
                 left = Some(TrigramExpansion::new(
                     [old[0], tg[0], tg[1], tg[2]],
                     [new[1], tg[1], tg[2]],
                 ));
             }
+            // If the trigram ends with the old bigram prefix, right
             if tg[2] == old[0] {
                 right = Some(TrigramExpansion::new(
                     [tg[0], tg[1], tg[2], old[1]],
                     [tg[0], tg[1], new[0]],
                 ));
+                // If both, both
                 if let Some(ref left) = left {
                     both = Some(TrigramExpansion::new(
                         [left.old[0], left.old[1], left.old[2], left.old[3], old[1]],
@@ -121,16 +125,23 @@ fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
                 }
             }
 
-            macro_rules! call {
-                ($method:ident, $($exp:ident),*) => {
-                    $($exp.as_mut().map(|x| x.$method(&mut corpus));)*
-                };
-            }
-            call!(add_count, left, right, both);
+            both.as_mut().map(|x| x.add_count(0, &mut corpus));
+            let offset = both.as_ref().map_or(0, |b| b.count.expect("missing bcount"));
+            left.as_mut().map(|x| x.add_count(offset, &mut corpus));
+            right.as_mut().map(|x| x.add_count(offset, &mut corpus));
 
-            let sum = right.as_mut().and_then(|x| x.count).unwrap_or(0)
-                + left.as_mut().and_then(|x| x.count).unwrap_or(0)
-                + both.as_mut().and_then(|x| x.count).unwrap_or(0);
+            if tg == &['†', 'a', 'h'] {
+                println!{"{:?}", offset}
+                println!{"{:?} {:?}", [left.clone(), right.clone()], both.clone()}
+            }
+
+            let sum = right.and_then(|x| x.count).unwrap_or(0)
+                + left.and_then(|x| x.count).unwrap_or(0)
+                + both.and_then(|x| x.count).unwrap_or(0);
+            if tg == &['†', 'a', 'h'] {
+                println!{"sum: {:?}", sum}
+            }
+
             corpus.trigrams[i] -= sum;
 
             // Skipgrams
@@ -262,6 +273,8 @@ fn verify_corpus_si_post(corpus: Corpus) {
     assert_eq!(count_trigram(&corpus, ['†', ' ', 'q']), 19454);
     assert_eq!(count_trigram(&corpus, ['e', ' ', 'l']), 210202);
     assert_eq!(count_trigram(&corpus, ['†', ' ', 'l']), 227994);
+    assert_eq!(count_trigram(&corpus, ['e', 'a', 'h']), 6357);
+    assert_eq!(count_trigram(&corpus, ['†', 'a', 'h']), 24);
 
     // Skipgrams
     assert_eq!(count_skipgram(&corpus, ['t', 'e']), 1153321);
@@ -314,7 +327,7 @@ mod tests {
     }
 
     /// XXX: Can OOM in release-mode.
-    #[ignore]
+    // #[ignore]
     #[test]
     fn si_compare_all_trigrams() {
         let b = fs::read("./corpora/shai-iweb.corpus").expect("couldn't read corpus file");
@@ -324,15 +337,15 @@ mod tests {
         let b = fs::read("./corpora/shai-iweb-he.corpus").expect("couldn't read corpus file");
         let ref_corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
 
-        assert_eq!(ref_corpus.trigrams, corpus.trigrams);
+        // assert_eq!(ref_corpus.trigrams, corpus.trigrams);
 
-        // let num_trigrams = corpus.trigrams.len();
-        // assert_eq!(ref_corpus.trigrams.len(), num_trigrams);
-        // for i in 0..num_trigrams {
-        //     let tg = corpus.uncorpus_trigram(i);
-        //     let ref_tg_idx = ref_corpus.corpus_trigram(&[tg[0], tg[1], tg[2]]);
-        //     // println!("{:?}", tg);
-        //     assert_eq!(corpus.trigrams[i], ref_corpus.trigrams[ref_tg_idx]);
-        // }
+        let num_trigrams = corpus.trigrams.len();
+        assert_eq!(ref_corpus.trigrams.len(), num_trigrams);
+        for i in 0..num_trigrams {
+            let tg = corpus.uncorpus_trigram(i);
+            let ref_tg_idx = ref_corpus.corpus_trigram(&[tg[0], tg[1], tg[2]]);
+            println!("{:?}", tg);
+            assert_eq!(corpus.trigrams[i], ref_corpus.trigrams[ref_tg_idx]);
+        }
     }
 }
