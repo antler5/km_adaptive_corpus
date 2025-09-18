@@ -16,14 +16,16 @@ use kc::Corpus;
 
 /// Specialized methods implemented per expansion-length to use generic [Expansion] methods.
 trait ExpansionBase<N> {
-    fn get_count(&mut self, bcount: u32, corpus: &Corpus) -> u32;
+    fn get_count(&self, corpus: &Corpus) -> u32;
 }
 
 /// Generic methods implemented per ngram-length but abstracted over expansion-length via
 /// [ExpansionBase].
 trait Expansion<N>: ExpansionBase<N> {
     fn new(old: N, new: [char; 3]) -> Self;
-    fn add_count(&mut self, bcount: u32, corpus: &mut Corpus);
+    fn add_count(&mut self, corpus: &mut Corpus);
+    fn read_count(&self) -> u32;
+    fn set_count(&mut self, count: u32);
     fn add_boundary_ngrams(&self, corpus: &mut Corpus, idx: u32, new: [char; 2], old: [char; 2]);
 }
 
@@ -40,22 +42,15 @@ struct TrigramExpansion<N> {
 
 impl ExpansionBase<[char; 4]> for TrigramExpansion<[char; 4]> {
     /// Count quadgrams.
-    fn get_count(&mut self, bcount: u32, corpus: &Corpus) -> u32 {
-        *self
-            .count
-            .get_or_insert_with(|| corpus.quadgrams[corpus.corpus_quadgram(&self.old)] - bcount)
+    fn get_count(&self, corpus: &Corpus) -> u32 {
+        corpus.quadgrams[corpus.corpus_quadgram(&self.old)]
     }
 }
 
 impl ExpansionBase<[char; 5]> for TrigramExpansion<[char; 5]> {
     /// Count pentagrams.
-    fn get_count(&mut self, bcount: u32, corpus: &Corpus) -> u32 {
-        // This method is only used for `both`, which doesn't get offset by `bcount`
-        debug_assert!(bcount == 0);
-        let _ = bcount;
-        *self
-            .count
-            .get_or_insert_with(|| corpus.pentagrams[corpus.corpus_pentagram(&self.old)])
+    fn get_count(&self, corpus: &Corpus) -> u32 {
+        corpus.pentagrams[corpus.corpus_pentagram(&self.old)]
     }
 }
 
@@ -73,15 +68,23 @@ where
     }
 
     /// Add `self.count` to trigram `self.new` (and eqiv. skipgram).
-    fn add_count(&mut self, bcount: u32, corpus: &mut Corpus) {
+    fn add_count(&mut self, corpus: &mut Corpus) {
         let idx = corpus.corpus_trigram(&self.new);
-        corpus.trigrams[idx] += self.get_count(bcount, corpus);
+        corpus.trigrams[idx] += self.read_count();
 
         // Skipgrams
         // XXX: Half-assed, assumes all corpus chars are valid.
         let new_sg = &[self.new[0], self.new[2]];
         let new_sg_idx = corpus.corpus_bigram(new_sg);
-        corpus.skipgrams[new_sg_idx] += self.get_count(bcount, corpus);
+        corpus.skipgrams[new_sg_idx] += self.read_count();
+    }
+
+    fn read_count(&self) -> u32 {
+        self.count.unwrap_or_default()
+    }
+
+    fn set_count(&mut self, count: u32) {
+        self.count = Some(count);
     }
 
     /// `TODO`
@@ -133,23 +136,28 @@ fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
                 }
             }
 
-            if let Some(x) = both.as_mut() {
-                x.add_count(0, &mut corpus)
-            }
-            let bcount = both
-                .as_ref()
-                .map_or(0, |b| b.count.expect("missing bcount"));
-
-            if let Some(x) = left.as_mut() {
-                x.add_count(bcount, &mut corpus)
-            }
-            if let Some(x) = right.as_mut() {
-                x.add_count(bcount, &mut corpus)
+            macro_rules! sum {
+                ($($tg:ident),*) => {
+                    [$($tg.as_ref().and_then(|x| Some(x.read_count())).unwrap_or(0)),*].into_iter().sum()
+                }
             }
 
-            let sum = right.and_then(|x| x.count).unwrap_or(0)
-                + left.and_then(|x| x.count).unwrap_or(0)
-                + both.and_then(|x| x.count).unwrap_or(0);
+            fn corpus_reflect_expansion<T, U>(exp: &mut Option<T>, corpus: &mut Corpus, offset: u32)
+            where
+                T: Expansion<U>,
+            {
+                if let Some(exp) = exp {
+                    exp.set_count(exp.get_count(&corpus) - offset);
+                    exp.add_count(corpus)
+                }
+            }
+
+            corpus_reflect_expansion(&mut both, &mut corpus, 0);
+            let bcount = sum!(both);
+            corpus_reflect_expansion(&mut left, &mut corpus, bcount);
+            corpus_reflect_expansion(&mut right, &mut corpus, bcount);
+
+            let sum: u32 = sum!(left, right, both);
 
             corpus.trigrams[i] -= sum;
 
@@ -336,7 +344,7 @@ mod tests {
     }
 
     /// XXX: Can OOM in release-mode.
-    // #[ignore]
+    #[ignore]
     #[test]
     fn si_compare_all_trigrams() {
         let b = fs::read("./corpora/shai-iweb.corpus").expect("couldn't read corpus file");
