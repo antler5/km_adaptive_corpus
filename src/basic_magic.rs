@@ -16,14 +16,14 @@ use kc::Corpus;
 
 /// Specialized methods implemented per expansion-length to use generic [Expansion] methods.
 trait ExpansionBase<N> {
-    fn get_count(&mut self, corpus: &Corpus) -> u32;
+    fn get_count(&mut self, bcount: u32, corpus: &Corpus) -> u32;
 }
 
 /// Generic methods implemented per ngram-length but abstracted over expansion-length via
 /// [ExpansionBase].
 trait Expansion<N>: ExpansionBase<N> {
     fn new(old: N, new: [char; 3]) -> Self;
-    fn add_count(&mut self, offset: u32, corpus: &mut Corpus);
+    fn add_count(&mut self, bcount: u32, corpus: &mut Corpus);
     fn add_boundary_ngrams(&self, corpus: &mut Corpus, idx: u32, new: [char; 2], old: [char; 2]);
 }
 
@@ -40,16 +40,19 @@ struct TrigramExpansion<N> {
 
 impl ExpansionBase<[char; 4]> for TrigramExpansion<[char; 4]> {
     /// Count quadgrams.
-    fn get_count(&mut self, corpus: &Corpus) -> u32 {
+    fn get_count(&mut self, bcount: u32, corpus: &Corpus) -> u32 {
         *self
             .count
-            .get_or_insert_with(|| corpus.quadgrams[corpus.corpus_quadgram(&self.old)])
+            .get_or_insert_with(|| corpus.quadgrams[corpus.corpus_quadgram(&self.old)] - bcount)
     }
 }
 
 impl ExpansionBase<[char; 5]> for TrigramExpansion<[char; 5]> {
     /// Count pentagrams.
-    fn get_count(&mut self, corpus: &Corpus) -> u32 {
+    fn get_count(&mut self, bcount: u32, corpus: &Corpus) -> u32 {
+        // This method is only used for `both`, which doesn't get offset by `bcount`
+        debug_assert!(bcount == 0);
+        let _ = bcount;
         *self
             .count
             .get_or_insert_with(|| corpus.pentagrams[corpus.corpus_pentagram(&self.old)])
@@ -70,15 +73,15 @@ where
     }
 
     /// Add `self.count` to trigram `self.new` (and eqiv. skipgram).
-    fn add_count(&mut self, offset: u32, corpus: &mut Corpus) {
+    fn add_count(&mut self, bcount: u32, corpus: &mut Corpus) {
         let idx = corpus.corpus_trigram(&self.new);
-        corpus.trigrams[idx] += self.get_count(corpus) + offset;
+        corpus.trigrams[idx] += self.get_count(bcount, corpus);
 
         // Skipgrams
         // XXX: Half-assed, assumes all corpus chars are valid.
         let new_sg = &[self.new[0], self.new[2]];
         let new_sg_idx = corpus.corpus_bigram(new_sg);
-        corpus.skipgrams[new_sg_idx] += self.get_count(corpus) + offset;
+        corpus.skipgrams[new_sg_idx] += self.get_count(bcount, corpus);
     }
 
     /// `TODO`
@@ -94,6 +97,11 @@ pub fn apply(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
     corpus
 }
 
+/// # Debugging
+/// - See commented code in test::si_compare_all_trigrams
+/// ```
+/// if tg == &['†', 'a', 'h'] { ... }
+/// ```
 fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
     let num_trigrams = corpus.trigrams.len();
 
@@ -125,22 +133,23 @@ fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
                 }
             }
 
-            both.as_mut().map(|x| x.add_count(0, &mut corpus));
-            let offset = both.as_ref().map_or(0, |b| b.count.expect("missing bcount"));
-            left.as_mut().map(|x| x.add_count(offset, &mut corpus));
-            right.as_mut().map(|x| x.add_count(offset, &mut corpus));
+            if let Some(x) = both.as_mut() {
+                x.add_count(0, &mut corpus)
+            }
+            let bcount = both
+                .as_ref()
+                .map_or(0, |b| b.count.expect("missing bcount"));
 
-            if tg == &['†', 'a', 'h'] {
-                println!{"{:?}", offset}
-                println!{"{:?} {:?}", [left.clone(), right.clone()], both.clone()}
+            if let Some(x) = left.as_mut() {
+                x.add_count(bcount, &mut corpus)
+            }
+            if let Some(x) = right.as_mut() {
+                x.add_count(bcount, &mut corpus)
             }
 
             let sum = right.and_then(|x| x.count).unwrap_or(0)
                 + left.and_then(|x| x.count).unwrap_or(0)
                 + both.and_then(|x| x.count).unwrap_or(0);
-            if tg == &['†', 'a', 'h'] {
-                println!{"sum: {:?}", sum}
-            }
 
             corpus.trigrams[i] -= sum;
 
