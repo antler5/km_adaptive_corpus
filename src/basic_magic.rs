@@ -1,36 +1,62 @@
+//! Dynamic trigram adjustments for simple magic rules.
+//!
+//! Right now, "simple" means bigram rules like `h* -> he`.
+//!
+//! # Examples
+//!
+//! ```
+//! use km_basic_magic::apply;
+//!
+//! let b = fs::read("./corpora/shai-iweb.corpus").unwrap();
+//! let mut corpus: Corpus = rmp_serde::from_slice(&b).unwrap();
+//! corpus = apply(corpus, ['h', 'e'], ['h', '†']);
+//! ```
+
 use kc::Corpus;
 
+/// Specialized methods implemented per expansion-length to use generic [Expansion] methods.
 trait ExpansionBase<N> {
     fn get_count(&self, corpus: &Corpus) -> u32;
 }
 
+/// Generic methods implemented per ngram-length but abstracted over expansion-length via
+/// [ExpansionBase].
 trait Expansion<N>: ExpansionBase<N> {
     fn add_count(&self, corpus: &mut Corpus);
     fn set_count(&mut self, corpus: &Corpus);
+    fn add_boundary_ngrams(&self, corpus: &mut Corpus, idx: u32, new: [char; 2], old: [char; 2]);
 }
 
+/// Expansions derived from trigrams.
 struct TrigramExpansion<N> {
+    /// Four to five character expansion derived from a modified trigram.
     old: N,
+    /// New trigram post-transformation.
     new: [char; 3],
+    /// Frequency of `old` in `corpus`.
     count: Option<u32>,
 }
 
 impl ExpansionBase<[char; 4]> for TrigramExpansion<[char; 4]> {
+    /// Count quadgrams.
     fn get_count(&self, corpus: &Corpus) -> u32 {
         corpus.quadgrams[corpus.corpus_quadgram(&self.old)]
     }
 }
 
 impl ExpansionBase<[char; 5]> for TrigramExpansion<[char; 5]> {
+    /// Count pentagrams.
     fn get_count(&self, corpus: &Corpus) -> u32 {
         corpus.pentagrams[corpus.corpus_pentagram(&self.old)]
     }
 }
 
+/// Generic methods for trigram-expansions abstracted over [ExpansionBase].
 impl<N> Expansion<N> for TrigramExpansion<N>
 where
     TrigramExpansion<N>: ExpansionBase<N>,
 {
+    /// Add `self.count` to trigram `self.new` (and eqiv. skipgram).
     fn add_count(&self, corpus: &mut Corpus) {
         let idx = corpus.corpus_trigram(&self.new);
         corpus.trigrams[idx] += self.count.unwrap();
@@ -42,11 +68,18 @@ where
         corpus.skipgrams[new_sg_idx] += self.count.unwrap();
     }
 
+    /// Set `self.count` via `self.get_count()`.
     fn set_count(&mut self, corpus: &Corpus) {
         self.count = Some(self.get_count(corpus));
     }
+
+    /// `TODO`
+    fn add_boundary_ngrams(&self, corpus: &mut Corpus, idx: u32, new: [char; 2], old: [char; 2]) {
+        todo!();
+    }
 }
 
+/// Apply simple (bigram) transformation `old -> new` to `corpus`.
 #[must_use]
 pub fn apply(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
     corpus = apply_tg(corpus, old, new);
@@ -65,7 +98,7 @@ fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
                 left = Some(TrigramExpansion {
                     old: [old[0], tg[0], tg[1], tg[2]],
                     new: [new[1], tg[1], tg[2]],
-                    count: Default::default(),
+                    corpus: Default::default(),
                 });
             }
             if tg[2] == old[0] {
@@ -97,7 +130,7 @@ fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
             corpus.trigrams[i] -= sum;
 
             // Skipgrams
-            // XXX: Half-assed, assumes all corpus chars are valid.
+            // XXX: Half-assed, assumes all corpus chars were valid.
             let sg = &[tg[0], tg[2]];
             let idx = corpus.corpus_bigram(sg);
             corpus.skipgrams[idx] -= sum;
@@ -107,6 +140,11 @@ fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
     for i in 0..num_trigrams {
         let tg = corpus.uncorpus_trigram(i);
 
+        // TODO: Would probably like to fold these into the traits?
+        // `TrigramExpansion<_>::add_boundary_ngrams(&mut corpus, idx, new, old)`?
+        // Uses lexical variables `i`, `tg`, and `corpus`.
+        // Call-site uses top-level bigrams `new` and `old`.
+        // Will be easier to make this call after trying bigrams.
         macro_rules! add_boundary_tg {
             ($tg:expr) => {
                 let freq = corpus.trigrams[i];
@@ -116,7 +154,8 @@ fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
                 let idx = corpus.corpus_trigram(new_tg);
                 corpus.trigrams[idx] += freq;
 
-                // XXX: Half-assed skipgrams, assumes every corpus char was valid.
+                // Skipgrams
+                // XXX: Half-assed skipgrams, assumes all corpus chars were valid.
                 let idx = corpus.corpus_bigram(&[tg[0], tg[2]]);
                 corpus.skipgrams[idx] -= freq;
                 let sg = &[new_tg[0], new_tg[2]];
@@ -128,7 +167,6 @@ fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
         if tg[0] == old[0] && tg[1] == old[1] {
             add_boundary_tg!(&[new[0], new[1], tg[2]]);
         }
-
         if tg[1] == old[0] && tg[2] == old[1] {
             add_boundary_tg!(&[tg[0], new[0], new[1]]);
         }
