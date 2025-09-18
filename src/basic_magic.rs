@@ -14,14 +14,16 @@
 
 use kc::Corpus;
 
-trait Corpus_ {
+/// Provides trait implementation methods access to fields.
+trait CorpusExt {
     fn corpus_bigram(&mut self, bigram: &[char; 2]) -> usize;
     fn corpus_trigram(&mut self, trigram: &[char; 3]) -> usize;
     fn get_trigrams(&mut self) -> &mut Vec<u32>;
     fn get_skipgrams(&mut self) -> &mut Vec<u32>;
 }
 
-impl Corpus_ for Corpus {
+/// Provides trait implementation methods access to fields.
+impl CorpusExt for Corpus {
     fn corpus_bigram(&mut self, bigram: &[char; 2]) -> usize {
         Corpus::corpus_bigram(self, bigram)
     }
@@ -36,12 +38,81 @@ impl Corpus_ for Corpus {
     }
 }
 
+/// Methods for adapting ngram frequencies to reflect bigram substitutions.
 trait AdaptiveCorpus {
+    fn adapt_interior_trigram<T, U>(&mut self, exp: &mut Option<T>, bcount: u32)
+    where T: Expansion<U>;
+    fn adapt_interior_trigrams(&mut self, old: [char; 2], new: [char; 2]);
     fn adapt_boundary_trigram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char; 3]);
     fn adapt_boundary_trigrams(&mut self, old: [char; 2], new: [char; 2]);
 }
 
 impl AdaptiveCorpus for Corpus {
+    fn adapt_interior_trigram<T, U>(&mut self, exp: &mut Option<T>, bcount: u32)
+    where
+        T: Expansion<U>,
+    {
+        if let Some(exp) = exp {
+            exp.set_count(exp.get_count(&self) - bcount);
+            exp.add_count(self)
+        }
+    }
+
+    fn adapt_interior_trigrams(&mut self, old: [char; 2], new: [char; 2]) {
+        let num_trigrams = self.get_trigrams().len();
+        for i in 0..num_trigrams {
+            let tg = self.uncorpus_trigram(i);
+            let (mut left, mut right, mut both) = (None, None, None);
+
+            // If the trigram starts with the old bigram suffix, left
+            if tg[0] == old[1] {
+                left = Some(TrigramExpansion::new(
+                    [old[0], tg[0], tg[1], tg[2]],
+                    [new[1], tg[1], tg[2]],
+                ));
+            }
+            // If the trigram ends with the old bigram prefix, right
+            if tg[2] == old[0] {
+                right = Some(TrigramExpansion::new(
+                    [tg[0], tg[1], tg[2], old[1]],
+                    [tg[0], tg[1], new[0]],
+                ));
+                // If both, both
+                if let Some(ref left) = left {
+                    both = Some(TrigramExpansion::new(
+                        [left.old[0], left.old[1], left.old[2], left.old[3], old[1]],
+                        [left.new[0], left.new[1], new[0]],
+                    ));
+                }
+            }
+
+            macro_rules! sum {
+                ($($tg:ident),*) => {
+                    [$($tg.as_ref()
+                          .and_then(|x| Some(x.read_count()))
+                          .unwrap_or(0)
+                     ),*
+                    ].into_iter().sum()
+                }
+            }
+
+            self.adapt_interior_trigram(&mut both, 0);
+            let bcount = sum!(both);
+            self.adapt_interior_trigram(&mut left, bcount);
+            self.adapt_interior_trigram(&mut right, bcount);
+
+            let sum: u32 = sum!(left, right, both);
+
+            self.trigrams[i] -= sum;
+
+            // Skipgrams
+            // XXX: Half-assed, assumes all corpus chars were valid.
+            let sg = &[tg[0], tg[2]];
+            let idx = self.corpus_bigram(sg);
+            self.skipgrams[idx] -= sum;
+        }
+    }
+
     fn adapt_boundary_trigram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char; 3]) {
         let freq = self.get_trigrams()[old_idx];
         self.get_trigrams()[old_idx] -= freq;
@@ -163,68 +234,8 @@ pub fn apply(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
 /// if tg == &['†', 'a', 'h'] { ... }
 /// ```
 fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
-    let num_trigrams = corpus.trigrams.len();
-
     // Interior ngrams
-    for i in 0..num_trigrams {
-        if true {
-            let tg = corpus.uncorpus_trigram(i);
-            let (mut left, mut right, mut both) = (None, None, None);
-
-            // If the trigram starts with the old bigram suffix, left
-            if tg[0] == old[1] {
-                left = Some(TrigramExpansion::new(
-                    [old[0], tg[0], tg[1], tg[2]],
-                    [new[1], tg[1], tg[2]],
-                ));
-            }
-            // If the trigram ends with the old bigram prefix, right
-            if tg[2] == old[0] {
-                right = Some(TrigramExpansion::new(
-                    [tg[0], tg[1], tg[2], old[1]],
-                    [tg[0], tg[1], new[0]],
-                ));
-                // If both, both
-                if let Some(ref left) = left {
-                    both = Some(TrigramExpansion::new(
-                        [left.old[0], left.old[1], left.old[2], left.old[3], old[1]],
-                        [left.new[0], left.new[1], new[0]],
-                    ));
-                }
-            }
-
-            macro_rules! sum {
-                ($($tg:ident),*) => {
-                    [$($tg.as_ref().and_then(|x| Some(x.read_count())).unwrap_or(0)),*].into_iter().sum()
-                }
-            }
-
-            fn corpus_reflect_expansion<T, U>(exp: &mut Option<T>, corpus: &mut Corpus, offset: u32)
-            where
-                T: Expansion<U>,
-            {
-                if let Some(exp) = exp {
-                    exp.set_count(exp.get_count(&corpus) - offset);
-                    exp.add_count(corpus)
-                }
-            }
-
-            corpus_reflect_expansion(&mut both, &mut corpus, 0);
-            let bcount = sum!(both);
-            corpus_reflect_expansion(&mut left, &mut corpus, bcount);
-            corpus_reflect_expansion(&mut right, &mut corpus, bcount);
-
-            let sum: u32 = sum!(left, right, both);
-
-            corpus.trigrams[i] -= sum;
-
-            // Skipgrams
-            // XXX: Half-assed, assumes all corpus chars were valid.
-            let sg = &[tg[0], tg[2]];
-            let idx = corpus.corpus_bigram(sg);
-            corpus.skipgrams[idx] -= sum;
-        }
-    }
+    corpus.adapt_interior_trigrams(old, new);
 
     // Boundary ngrams
     corpus.adapt_boundary_trigrams(old, new);
