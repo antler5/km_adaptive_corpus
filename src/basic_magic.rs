@@ -1,5 +1,52 @@
 use kc::Corpus;
 
+trait ExpansionBase<N> {
+    fn get_count(&self, corpus: &Corpus) -> u32;
+}
+
+trait Expansion<N>: ExpansionBase<N> {
+    fn add_count(&self, corpus: &mut Corpus);
+    fn set_count(&mut self, corpus: &Corpus);
+}
+
+struct TrigramExpansion<N> {
+    old: N,
+    new: [char; 3],
+    count: Option<u32>,
+}
+
+impl ExpansionBase<[char; 4]> for TrigramExpansion<[char; 4]> {
+    fn get_count(&self, corpus: &Corpus) -> u32 {
+        corpus.quadgrams[corpus.corpus_quadgram(&self.old)]
+    }
+}
+
+impl ExpansionBase<[char; 5]> for TrigramExpansion<[char; 5]> {
+    fn get_count(&self, corpus: &Corpus) -> u32 {
+        corpus.pentagrams[corpus.corpus_pentagram(&self.old)]
+    }
+}
+
+impl<N> Expansion<N> for TrigramExpansion<N>
+where
+    TrigramExpansion<N>: ExpansionBase<N>,
+{
+    fn add_count(&self, corpus: &mut Corpus) {
+        let idx = corpus.corpus_trigram(&self.new);
+        corpus.trigrams[idx] += self.count.unwrap();
+
+        // Skipgrams
+        // XXX: Half-assed, assumes all corpus chars are valid.
+        let new_sg = &[self.new[0], self.new[2]];
+        let new_sg_idx = corpus.corpus_bigram(new_sg);
+        corpus.skipgrams[new_sg_idx] += self.count.unwrap();
+    }
+
+    fn set_count(&mut self, corpus: &Corpus) {
+        self.count = Some(self.get_count(corpus));
+    }
+}
+
 #[must_use]
 pub fn apply(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
     corpus = apply_tg(corpus, old, new);
@@ -12,117 +59,78 @@ fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
     for i in 0..num_trigrams {
         if true {
             let tg = corpus.uncorpus_trigram(i);
-
-            let (mut left, mut lrep) = (None, None);
-            let (mut right, mut rrep) = (None, None);
-            let (mut both, mut brep) = (None, None);
+            let (mut left, mut right, mut both) = (None, None, None);
 
             if tg[0] == old[1] {
-                left = Some([old[0], tg[0], tg[1], tg[2]]);
-                lrep = Some([new[1], tg[1], tg[2]]);
+                left = Some(TrigramExpansion {
+                    old: [old[0], tg[0], tg[1], tg[2]],
+                    new: [new[1], tg[1], tg[2]],
+                    count: Default::default(),
+                });
             }
             if tg[2] == old[0] {
-                right = Some([tg[0], tg[1], tg[2], old[1]]);
-                rrep = Some([tg[0], tg[1], new[0]]);
-                if let (Some(lrep), Some(left)) = (lrep, left) {
-                    both = Some([left[0], left[1], left[2], left[3], old[1]]);
-                    brep = Some([lrep[0], lrep[1], new[0]]);
+                right = Some(TrigramExpansion {
+                    old: [tg[0], tg[1], tg[2], old[1]],
+                    new: [tg[0], tg[1], new[0]],
+                    count: Default::default(),
+                });
+                if let Some(ref left) = left {
+                    both = Some(TrigramExpansion {
+                        old: [left.old[0], left.old[1], left.old[2], left.old[3], old[1]],
+                        new: [left.new[0], left.new[1], new[0]],
+                        count: Default::default(),
+                    });
                 }
             }
 
-            let bcount = match (left, right, both) {
-                (Some(_left), Some(_right), Some(both)) => {
-                    let corpus_index = corpus.corpus_pentagram(&both);
-                    corpus.pentagrams[corpus_index]
-                }
-                _ => 0,
-            };
-            let lcount = match left {
-                Some(left) => {
-                    let corpus_index = corpus.corpus_quadgram(&left);
-                    corpus.quadgrams[corpus_index] - bcount
-                }
-                _ => 0,
-            };
-            let rcount = match right {
-                Some(right) => {
-                    let corpus_index = corpus.corpus_quadgram(&right);
-                    corpus.quadgrams[corpus_index] - bcount
-                }
-                _ => 0,
-            };
-
-            if let Some(brep) = brep {
-                let idx = corpus.corpus_trigram(&brep);
-                corpus.trigrams[idx] += bcount;
-
-                let new_sg = &[brep[0], brep[2]];
-                let new_sg_idx = corpus.corpus_bigram(new_sg);
-                corpus.skipgrams[new_sg_idx] += bcount;
+            macro_rules! call {
+                ($method:ident, $($exp:ident),*) => {
+                    $($exp.as_mut().map(|x| x.$method(&mut corpus));)*
+                };
             }
-            if let Some(lrep) = lrep {
-                let idx = corpus.corpus_trigram(&lrep);
-                corpus.trigrams[idx] += lcount;
+            call!(set_count, left, right, both);
+            call!(add_count, left, right, both);
 
-                let new_sg = &[lrep[0], lrep[2]];
-                let new_sg_idx = corpus.corpus_bigram(new_sg);
-                corpus.skipgrams[new_sg_idx] += lcount;
-            }
-            if let Some(rrep) = rrep {
-                let idx = corpus.corpus_trigram(&rrep);
-                corpus.trigrams[idx] += rcount;
+            let sum = right.as_mut().and_then(|x| x.count).unwrap_or(0)
+                + left.as_mut().and_then(|x| x.count).unwrap_or(0)
+                + both.as_mut().and_then(|x| x.count).unwrap_or(0);
+            corpus.trigrams[i] -= sum;
 
-                let new_sg = &[rrep[0], rrep[2]];
-                let new_sg_idx = corpus.corpus_bigram(new_sg);
-                corpus.skipgrams[new_sg_idx] += rcount;
-            }
-
-            corpus.trigrams[i] -= lcount + rcount + bcount;
-
-            let new_sg = &[tg[0], tg[2]];
-            let new_sg_idx = corpus.corpus_bigram(new_sg);
-            corpus.skipgrams[new_sg_idx] -= lcount + rcount + bcount;
+            // Skipgrams
+            // XXX: Half-assed, assumes all corpus chars are valid.
+            let sg = &[tg[0], tg[2]];
+            let idx = corpus.corpus_bigram(sg);
+            corpus.skipgrams[idx] -= sum;
         }
     }
 
     for i in 0..num_trigrams {
-        if true {
-            let tg = corpus.uncorpus_trigram(i);
-            match tg[..] {
-                [_, _, suffix] if tg[0] == old[0] && tg[1] == old[1] => {
-                    let freq = corpus.trigrams[i];
-                    corpus.trigrams[i] -= freq;
-                    let new_tg = &[new[0], new[1], suffix];
-                    let new_tg_idx = corpus.corpus_trigram(new_tg);
-                    corpus.trigrams[new_tg_idx] += freq;
+        let tg = corpus.uncorpus_trigram(i);
 
-                    // XXX: Half-assed skipgrams, assumes every corpus char was valid.
-                    let old_sg_idx = corpus.corpus_bigram(&[tg[0], tg[2]]);
-                    corpus.skipgrams[old_sg_idx] -= freq;
-                    let new_sg = &[new[0], suffix];
-                    let new_sg_idx = corpus.corpus_bigram(new_sg);
-                    corpus.skipgrams[new_sg_idx] += freq;
-                }
-                _ => {}
-            }
+        macro_rules! add_boundary_tg {
+            ($tg:expr) => {
+                let freq = corpus.trigrams[i];
+                corpus.trigrams[i] -= freq;
 
-            match tg[..] {
-                [prefix, _, _] if tg[1] == old[0] && tg[2] == old[1] => {
-                    let freq = corpus.trigrams[i];
-                    corpus.trigrams[i] -= freq;
-                    let new_tg = &[prefix, new[0], new[1]];
-                    let new_tg_idx = corpus.corpus_trigram(new_tg);
-                    corpus.trigrams[new_tg_idx] += freq;
+                let new_tg = $tg;
+                let idx = corpus.corpus_trigram(new_tg);
+                corpus.trigrams[idx] += freq;
 
-                    // XXX: Half-assed skipgrams, assumes every corpus char was valid.
-                    let old_sg_idx = corpus.corpus_bigram(&[tg[0], tg[2]]);
-                    corpus.skipgrams[old_sg_idx] -= freq;
-                    let new_sg = &[prefix, new[1]];
-                    let new_sg_idx = corpus.corpus_bigram(new_sg);
-                    corpus.skipgrams[new_sg_idx] += freq;
-                }
-                _ => {}
-            }
+                // XXX: Half-assed skipgrams, assumes every corpus char was valid.
+                let idx = corpus.corpus_bigram(&[tg[0], tg[2]]);
+                corpus.skipgrams[idx] -= freq;
+                let sg = &[new_tg[0], new_tg[2]];
+                let idx = corpus.corpus_bigram(sg);
+                corpus.skipgrams[idx] += freq;
+            };
+        }
+
+        if tg[0] == old[0] && tg[1] == old[1] {
+            add_boundary_tg!(&[new[0], new[1], tg[2]]);
+        }
+
+        if tg[1] == old[0] && tg[2] == old[1] {
+            add_boundary_tg!(&[tg[0], new[0], new[1]]);
         }
     }
 
