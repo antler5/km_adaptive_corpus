@@ -14,6 +14,64 @@
 
 use kc::Corpus;
 
+trait Corpus_ {
+    fn corpus_bigram(&mut self, bigram: &[char; 2]) -> usize;
+    fn corpus_trigram(&mut self, trigram: &[char; 3]) -> usize;
+    fn get_trigrams(&mut self) -> &mut Vec<u32>;
+    fn get_skipgrams(&mut self) -> &mut Vec<u32>;
+}
+
+impl Corpus_ for Corpus {
+    fn corpus_bigram(&mut self, bigram: &[char; 2]) -> usize {
+        Corpus::corpus_bigram(self, bigram)
+    }
+    fn corpus_trigram(&mut self, trigram: &[char; 3]) -> usize {
+        Corpus::corpus_trigram(self, trigram)
+    }
+    fn get_trigrams(&mut self) -> &mut Vec<u32> {
+        &mut self.trigrams
+    }
+    fn get_skipgrams(&mut self) -> &mut Vec<u32> {
+        &mut self.skipgrams
+    }
+}
+
+trait AdaptiveCorpus {
+    fn adapt_boundary_trigram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char; 3]);
+    fn adapt_boundary_trigrams(&mut self, old: [char; 2], new: [char; 2]);
+}
+
+impl AdaptiveCorpus for Corpus {
+    fn adapt_boundary_trigram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char; 3]) {
+        let freq = self.get_trigrams()[old_idx];
+        self.get_trigrams()[old_idx] -= freq;
+
+        let new_idx = self.corpus_trigram(new_ng);
+        self.get_trigrams()[new_idx] += freq;
+
+        // Skipgrams
+        // XXX: Half-assed skipgrams, assumes all corpus chars were valid.
+        let old_idx = self.corpus_bigram(&[old_ng[0], old_ng[2]]);
+        self.get_skipgrams()[old_idx] -= freq;
+        let new_sg = &[new_ng[0], new_ng[2]];
+        let new_idx = self.corpus_bigram(new_sg);
+        self.get_skipgrams()[new_idx] += freq;
+    }
+
+    fn adapt_boundary_trigrams(&mut self, old: [char; 2], new: [char; 2]) {
+        let num_trigrams = self.get_trigrams().len();
+        for i in 0..num_trigrams {
+            let tg = self.uncorpus_trigram(i);
+            if tg[0] == old[0] && tg[1] == old[1] {
+                self.adapt_boundary_trigram(i, &tg[..], &[new[0], new[1], tg[2]]);
+            }
+            if tg[1] == old[0] && tg[2] == old[1] {
+                self.adapt_boundary_trigram(i, &tg[..], &[tg[0], new[0], new[1]]);
+            }
+        }
+    }
+}
+
 /// Specialized methods implemented per expansion-length to use generic [Expansion] methods.
 trait ExpansionBase<N> {
     fn get_count(&self, corpus: &Corpus) -> u32;
@@ -26,7 +84,6 @@ trait Expansion<N>: ExpansionBase<N> {
     fn add_count(&mut self, corpus: &mut Corpus);
     fn read_count(&self) -> u32;
     fn set_count(&mut self, count: u32);
-    fn add_boundary_ngrams(&self, corpus: &mut Corpus, idx: u32, new: [char; 2], old: [char; 2]);
 }
 
 /// Expansions derived from trigrams.
@@ -87,10 +144,10 @@ where
         self.count = Some(count);
     }
 
-    /// `TODO`
-    fn add_boundary_ngrams(&self, corpus: &mut Corpus, idx: u32, new: [char; 2], old: [char; 2]) {
-        todo!();
-    }
+    // /// `TODO`
+    // fn add_boundary_ngrams(&self, corpus: &mut Corpus, idx: u32, new: [char; 2], old: [char; 2]) {
+    //     todo!();
+    // }
 }
 
 /// Apply simple (bigram) transformation `old -> new` to `corpus`.
@@ -108,7 +165,7 @@ pub fn apply(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
 fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
     let num_trigrams = corpus.trigrams.len();
 
-    // Non-boundary ngrams
+    // Interior ngrams
     for i in 0..num_trigrams {
         if true {
             let tg = corpus.uncorpus_trigram(i);
@@ -170,40 +227,7 @@ fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
     }
 
     // Boundary ngrams
-    for i in 0..num_trigrams {
-        let tg = corpus.uncorpus_trigram(i);
-
-        // TODO: Would probably like to fold these into the traits?
-        // `TrigramExpansion<_>::add_boundary_ngrams(&mut corpus, idx, new, old)`?
-        // Uses lexical variables `i`, `tg`, and `corpus`.
-        // Call-site uses top-level bigrams `new` and `old`.
-        // Will be easier to make this call after trying bigrams.
-        macro_rules! add_boundary_tg {
-            ($tg:expr) => {
-                let freq = corpus.trigrams[i];
-                corpus.trigrams[i] -= freq;
-
-                let new_tg = $tg;
-                let idx = corpus.corpus_trigram(new_tg);
-                corpus.trigrams[idx] += freq;
-
-                // Skipgrams
-                // XXX: Half-assed skipgrams, assumes all corpus chars were valid.
-                let idx = corpus.corpus_bigram(&[tg[0], tg[2]]);
-                corpus.skipgrams[idx] -= freq;
-                let sg = &[new_tg[0], new_tg[2]];
-                let idx = corpus.corpus_bigram(sg);
-                corpus.skipgrams[idx] += freq;
-            };
-        }
-
-        if tg[0] == old[0] && tg[1] == old[1] {
-            add_boundary_tg!(&[new[0], new[1], tg[2]]);
-        }
-        if tg[1] == old[0] && tg[2] == old[1] {
-            add_boundary_tg!(&[tg[0], new[0], new[1]]);
-        }
-    }
+    corpus.adapt_boundary_trigrams(old, new);
 
     corpus
 }
@@ -354,15 +378,15 @@ mod tests {
         let b = fs::read("./corpora/shai-iweb-he.corpus").expect("couldn't read corpus file");
         let ref_corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
 
-        // assert_eq!(ref_corpus.trigrams, corpus.trigrams);
+        assert_eq!(ref_corpus.trigrams, corpus.trigrams);
 
-        let num_trigrams = corpus.trigrams.len();
-        assert_eq!(ref_corpus.trigrams.len(), num_trigrams);
-        for i in 0..num_trigrams {
-            let tg = corpus.uncorpus_trigram(i);
-            let ref_tg_idx = ref_corpus.corpus_trigram(&[tg[0], tg[1], tg[2]]);
-            println!("{:?}", tg);
-            assert_eq!(corpus.trigrams[i], ref_corpus.trigrams[ref_tg_idx]);
-        }
+        // let num_trigrams = corpus.trigrams.len();
+        // assert_eq!(ref_corpus.trigrams.len(), num_trigrams);
+        // for i in 0..num_trigrams {
+        //     let tg = corpus.uncorpus_trigram(i);
+        //     let ref_tg_idx = ref_corpus.corpus_trigram(&[tg[0], tg[1], tg[2]]);
+        //     // println!("{:?}", tg);
+        //     assert_eq!(corpus.trigrams[i], ref_corpus.trigrams[ref_tg_idx]);
+        // }
     }
 }
