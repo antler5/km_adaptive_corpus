@@ -36,17 +36,17 @@ impl CorpusExt for Corpus {
     fn count_char(&self, c: char) -> u32 {
         self.chars[self.corpus_char(c)]
     }
-    
+
     #[cfg(test)]
     fn count_bigram(&self, bg: [char; 2]) -> u32 {
         self.bigrams[self.corpus_bigram(&bg)]
     }
-    
+
     #[cfg(test)]
     fn count_trigram(&self, tg: [char; 3]) -> u32 {
         self.trigrams[self.corpus_trigram(&tg)]
     }
-    
+
     #[cfg(test)]
     fn count_skipgram(&self, sg: [char; 2]) -> u32 {
         self.skipgrams[self.corpus_bigram(&sg)]

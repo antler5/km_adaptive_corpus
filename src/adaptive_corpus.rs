@@ -22,15 +22,7 @@ mod tests;
 /// Interface for adapting ngram frequencies to reflect bigram substitutions.
 pub trait AdaptiveCorpus {
     fn adapt_trigrams(&mut self, old: [char; 2], new: [char; 2]);
-    fn expand_trigram(
-        tg: &[char],
-        old: [char; 2],
-        new: [char; 2],
-    ) -> (
-        Option<TrigramExpansion<[char; 4]>>,
-        Option<TrigramExpansion<[char; 4]>>,
-        Option<TrigramExpansion<[char; 5]>>,
-    );
+    fn expand_trigram(tg: &[char], old: [char; 2], new: [char; 2]) -> TrigramExpansions;
     fn adapt_interior_trigram<T, U>(&mut self, exp: &mut Option<T>, bcount: u32)
     where
         T: Expansion<U>;
@@ -52,15 +44,7 @@ impl AdaptiveCorpus for Corpus {
         self.adapt_boundary_trigrams(old, new);
     }
 
-    fn expand_trigram(
-        tg: &[char],
-        old: [char; 2],
-        new: [char; 2],
-    ) -> (
-        Option<TrigramExpansion<[char; 4]>>,
-        Option<TrigramExpansion<[char; 4]>>,
-        Option<TrigramExpansion<[char; 5]>>,
-    ) {
+    fn expand_trigram(tg: &[char], old: [char; 2], new: [char; 2]) -> TrigramExpansions {
         let (mut left, mut right, mut both) = (None, None, None);
 
         // If the trigram starts with the old bigram suffix, left
@@ -87,7 +71,7 @@ impl AdaptiveCorpus for Corpus {
             }
         }
 
-        (left, right, both)
+        TrigramExpansions { left, right, both }
     }
 
     fn adapt_interior_trigram<T, U>(&mut self, exp: &mut Option<T>, bcount: u32)
@@ -95,7 +79,7 @@ impl AdaptiveCorpus for Corpus {
         T: Expansion<U>,
     {
         if let Some(exp) = exp {
-            exp.set_count(exp.get_count(&self) - bcount);
+            exp.set_count(exp.get_count(self) - bcount);
             exp.add_count(self)
         }
     }
@@ -105,10 +89,10 @@ impl AdaptiveCorpus for Corpus {
         for i in 0..num_trigrams {
             let tg = self.uncorpus_trigram(i);
 
-            let (mut left, mut right, mut both) = Corpus::expand_trigram(&tg[..], old, new);
+            let mut exps = Corpus::expand_trigram(&tg[..], old, new);
 
             macro_rules! sum {
-                ($($tg:ident),*) => {
+                ($($tg:expr),*) => {
                     [$($tg.as_ref()
                           .and_then(|x| Some(x.read_count()))
                           .unwrap_or(0)
@@ -117,12 +101,12 @@ impl AdaptiveCorpus for Corpus {
                 }
             }
 
-            self.adapt_interior_trigram(&mut both, 0);
-            let bcount = sum!(both);
-            self.adapt_interior_trigram(&mut left, bcount);
-            self.adapt_interior_trigram(&mut right, bcount);
+            self.adapt_interior_trigram(&mut exps.both, 0);
+            let bcount = sum!(exps.both);
+            self.adapt_interior_trigram(&mut exps.left, bcount);
+            self.adapt_interior_trigram(&mut exps.right, bcount);
 
-            let sum: u32 = sum!(left, right, both);
+            let sum: u32 = sum!(exps.left, exps.right, exps.both);
 
             self.trigrams[i] -= sum;
 
@@ -178,8 +162,14 @@ pub trait Expansion<N>: ExpansionBase<N> {
     fn set_count(&mut self, count: u32);
 }
 
-/// Expansions derived from trigrams.
-#[derive(Debug, Clone)]
+/// Expansions derived from a trigrams.
+pub struct TrigramExpansions {
+    left: Option<TrigramExpansion<[char; 4]>>,
+    right: Option<TrigramExpansion<[char; 4]>>,
+    both: Option<TrigramExpansion<[char; 5]>>,
+}
+
+/// Expansion derived from a trigrams.
 pub struct TrigramExpansion<N> {
     /// Four to five character expansion derived from a modified trigram.
     old: N,
