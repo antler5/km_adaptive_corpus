@@ -1,3 +1,7 @@
+# Copyright 2025 antlers <antlers@illucid.net>
+#
+# SPDX-License-Identifier: GPL-3.0-only
+
 [package]
 name = "km_basic_magic"
 version = "0.1.0"

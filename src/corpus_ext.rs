@@ -1,3 +1,7 @@
+// Copyright 2025 antlers <antlers@illucid.net>
+//
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Trait CorpusExt is just a wrapper around struct Corpus's fields.
 
 pub(crate) use kc::Corpus;

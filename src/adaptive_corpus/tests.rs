@@ -1,3 +1,7 @@
+// Copyright 2025 antlers <antlers@illucid.net>
+//
+// SPDX-License-Identifier: GPL-3.0-only
+
 use super::*;
 use std::fs;
 

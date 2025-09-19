@@ -1,3 +1,7 @@
+// Copyright 2025 antlers <antlers@illucid.net>
+//
+// SPDX-License-Identifier: GPL-3.0-only
+
 //! Dynamic trigram adjustments for simple magic rules.
 //!
 //! Right now, "simple" means adaptive-key style bigram rules like `h* -> he`.
