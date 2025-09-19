@@ -40,14 +40,62 @@ impl CorpusExt for Corpus {
 
 /// Methods for adapting ngram frequencies to reflect bigram substitutions.
 trait AdaptiveCorpus {
+    fn expand_trigram(
+        tg: &[char],
+        old: [char; 2],
+        new: [char; 2],
+    ) -> (
+        Option<TrigramExpansion<[char; 4]>>,
+        Option<TrigramExpansion<[char; 4]>>,
+        Option<TrigramExpansion<[char; 5]>>,
+    );
     fn adapt_interior_trigram<T, U>(&mut self, exp: &mut Option<T>, bcount: u32)
-    where T: Expansion<U>;
+    where
+        T: Expansion<U>;
     fn adapt_interior_trigrams(&mut self, old: [char; 2], new: [char; 2]);
     fn adapt_boundary_trigram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char; 3]);
     fn adapt_boundary_trigrams(&mut self, old: [char; 2], new: [char; 2]);
 }
 
 impl AdaptiveCorpus for Corpus {
+    fn expand_trigram(
+        tg: &[char],
+        old: [char; 2],
+        new: [char; 2],
+    ) -> (
+        Option<TrigramExpansion<[char; 4]>>,
+        Option<TrigramExpansion<[char; 4]>>,
+        Option<TrigramExpansion<[char; 5]>>,
+    ) {
+        let (mut left, mut right, mut both) = (None, None, None);
+
+        // If the trigram starts with the old bigram suffix, left
+        if tg[0] == old[1] {
+            left = Some(TrigramExpansion::new(
+                [old[0], tg[0], tg[1], tg[2]],
+                [new[1], tg[1], tg[2]],
+            ));
+        }
+
+        // If the trigram ends with the old bigram prefix, right
+        if tg[2] == old[0] {
+            right = Some(TrigramExpansion::new(
+                [tg[0], tg[1], tg[2], old[1]],
+                [tg[0], tg[1], new[0]],
+            ));
+
+            // If both, both
+            if let Some(ref left) = left {
+                both = Some(TrigramExpansion::new(
+                    [left.old[0], left.old[1], left.old[2], left.old[3], old[1]],
+                    [left.new[0], left.new[1], new[0]],
+                ));
+            }
+        }
+
+        (left, right, both)
+    }
+
     fn adapt_interior_trigram<T, U>(&mut self, exp: &mut Option<T>, bcount: u32)
     where
         T: Expansion<U>,
@@ -62,29 +110,8 @@ impl AdaptiveCorpus for Corpus {
         let num_trigrams = self.get_trigrams().len();
         for i in 0..num_trigrams {
             let tg = self.uncorpus_trigram(i);
-            let (mut left, mut right, mut both) = (None, None, None);
 
-            // If the trigram starts with the old bigram suffix, left
-            if tg[0] == old[1] {
-                left = Some(TrigramExpansion::new(
-                    [old[0], tg[0], tg[1], tg[2]],
-                    [new[1], tg[1], tg[2]],
-                ));
-            }
-            // If the trigram ends with the old bigram prefix, right
-            if tg[2] == old[0] {
-                right = Some(TrigramExpansion::new(
-                    [tg[0], tg[1], tg[2], old[1]],
-                    [tg[0], tg[1], new[0]],
-                ));
-                // If both, both
-                if let Some(ref left) = left {
-                    both = Some(TrigramExpansion::new(
-                        [left.old[0], left.old[1], left.old[2], left.old[3], old[1]],
-                        [left.new[0], left.new[1], new[0]],
-                    ));
-                }
-            }
+            let (mut left, mut right, mut both) = Corpus::expand_trigram(&tg[..], old, new);
 
             macro_rules! sum {
                 ($($tg:ident),*) => {
