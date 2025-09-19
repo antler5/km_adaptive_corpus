@@ -5,41 +5,20 @@
 //! # Examples
 //!
 //! ```
-//! use km_basic_magic::apply;
+//! use kc:Corpus;
+//! use km_basic_magic::AdaptiveCorpus;
 //!
 //! let b = fs::read("./corpora/shai-iweb.corpus").unwrap();
 //! let mut corpus: Corpus = rmp_serde::from_slice(&b).unwrap();
-//! corpus = apply(corpus, ['h', 'e'], ['h', '†']);
+//! corpus.adapt_trigrams(['h', 'e'], ['h', '†']);
 //! ```
 
 use kc::Corpus;
+use crate::CorpusExt;
 
-/// Provides trait implementation methods access to fields.
-trait CorpusExt {
-    fn corpus_bigram(&mut self, bigram: &[char; 2]) -> usize;
-    fn corpus_trigram(&mut self, trigram: &[char; 3]) -> usize;
-    fn get_trigrams(&mut self) -> &mut Vec<u32>;
-    fn get_skipgrams(&mut self) -> &mut Vec<u32>;
-}
-
-/// Provides trait implementation methods access to fields.
-impl CorpusExt for Corpus {
-    fn corpus_bigram(&mut self, bigram: &[char; 2]) -> usize {
-        Corpus::corpus_bigram(self, bigram)
-    }
-    fn corpus_trigram(&mut self, trigram: &[char; 3]) -> usize {
-        Corpus::corpus_trigram(self, trigram)
-    }
-    fn get_trigrams(&mut self) -> &mut Vec<u32> {
-        &mut self.trigrams
-    }
-    fn get_skipgrams(&mut self) -> &mut Vec<u32> {
-        &mut self.skipgrams
-    }
-}
-
-/// Methods for adapting ngram frequencies to reflect bigram substitutions.
-trait AdaptiveCorpus {
+/// Interface for adapting ngram frequencies to reflect bigram substitutions.
+pub trait AdaptiveCorpus {
+    fn adapt_trigrams(&mut self, old: [char; 2], new: [char; 2]);
     fn expand_trigram(
         tg: &[char],
         old: [char; 2],
@@ -57,7 +36,19 @@ trait AdaptiveCorpus {
     fn adapt_boundary_trigrams(&mut self, old: [char; 2], new: [char; 2]);
 }
 
+/// Methods for adapting ngram frequencies to reflect bigram substitutions.
+///
+/// # Debugging
+/// - See commented code in module `test::si_compare_all_trigrams`
+/// ```
+/// if tg == &['†', 'a', 'h'] { ... }
+/// ```
 impl AdaptiveCorpus for Corpus {
+    fn adapt_trigrams(&mut self, old: [char; 2], new: [char; 2]) {
+        self.adapt_interior_trigrams(old, new);
+        self.adapt_boundary_trigrams(old, new);
+    }
+
     fn expand_trigram(
         tg: &[char],
         old: [char; 2],
@@ -171,13 +162,13 @@ impl AdaptiveCorpus for Corpus {
 }
 
 /// Specialized methods implemented per expansion-length to use generic [Expansion] methods.
-trait ExpansionBase<N> {
+pub trait ExpansionBase<N> {
     fn get_count(&self, corpus: &Corpus) -> u32;
 }
 
 /// Generic methods implemented per ngram-length but abstracted over expansion-length via
 /// [ExpansionBase].
-trait Expansion<N>: ExpansionBase<N> {
+pub trait Expansion<N>: ExpansionBase<N> {
     fn new(old: N, new: [char; 3]) -> Self;
     fn add_count(&mut self, corpus: &mut Corpus);
     fn read_count(&self) -> u32;
@@ -186,7 +177,7 @@ trait Expansion<N>: ExpansionBase<N> {
 
 /// Expansions derived from trigrams.
 #[derive(Debug, Clone)]
-struct TrigramExpansion<N> {
+pub struct TrigramExpansion<N> {
     /// Four to five character expansion derived from a modified trigram.
     old: N,
     /// New trigram post-transformation.
@@ -241,33 +232,6 @@ where
     fn set_count(&mut self, count: u32) {
         self.count = Some(count);
     }
-
-    // /// `TODO`
-    // fn add_boundary_ngrams(&self, corpus: &mut Corpus, idx: u32, new: [char; 2], old: [char; 2]) {
-    //     todo!();
-    // }
-}
-
-/// Apply simple (bigram) transformation `old -> new` to `corpus`.
-#[must_use]
-pub fn apply(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
-    corpus = apply_tg(corpus, old, new);
-    corpus
-}
-
-/// # Debugging
-/// - See commented code in test::si_compare_all_trigrams
-/// ```
-/// if tg == &['†', 'a', 'h'] { ... }
-/// ```
-fn apply_tg(mut corpus: Corpus, old: [char; 2], new: [char; 2]) -> Corpus {
-    // Interior ngrams
-    corpus.adapt_interior_trigrams(old, new);
-
-    // Boundary ngrams
-    corpus.adapt_boundary_trigrams(old, new);
-
-    corpus
 }
 
 #[cfg(test)]
@@ -394,7 +358,7 @@ mod tests {
     fn si_post() {
         let b = fs::read("./corpora/shai-iweb.corpus").expect("couldn't read corpus file");
         let mut corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
-        corpus = apply(corpus, ['h', 'e'], ['h', '†']);
+        corpus.adapt_trigrams(['h', 'e'], ['h', '†']);
         verify_corpus_si_post(corpus);
     }
 
@@ -411,7 +375,7 @@ mod tests {
     fn si_compare_all_trigrams() {
         let b = fs::read("./corpora/shai-iweb.corpus").expect("couldn't read corpus file");
         let mut corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
-        corpus = apply(corpus, ['h', 'e'], ['h', '†']);
+        corpus.adapt_trigrams(['h', 'e'], ['h', '†']);
 
         let b = fs::read("./corpora/shai-iweb-he.corpus").expect("couldn't read corpus file");
         let ref_corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
