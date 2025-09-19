@@ -1,6 +1,6 @@
 //! Dynamic trigram adjustments for simple magic rules.
 //!
-//! Right now, "simple" means bigram rules like `h* -> he`.
+//! Right now, "simple" means adaptive-key style bigram rules like `h* -> he`.
 //!
 //! # Examples
 //!
@@ -13,8 +13,8 @@
 //! corpus.adapt_trigrams(['h', 'e'], ['h', '†']);
 //! ```
 
-use kc::Corpus;
 use crate::CorpusExt;
+use kc::Corpus;
 
 /// Interface for adapting ngram frequencies to reflect bigram substitutions.
 pub trait AdaptiveCorpus {
