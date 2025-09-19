@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 [package]
-name = "km_basic_magic"
+name = "km_adaptive_corpus"
 version = "0.1.0"
 edition = "2024"
 license = "GPL-3.0-only"

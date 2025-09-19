@@ -9,8 +9,9 @@
 //! # Examples
 //!
 //! ```
-//! use kc:Corpus;
-//! use km_basic_magic::AdaptiveCorpus;
+//! use std::fs;
+//! use kc::Corpus;
+//! use km_adaptive_corpus::AdaptiveCorpus;
 //!
 //! let b = fs::read("./corpora/shai-iweb.corpus").unwrap();
 //! let mut corpus: Corpus = rmp_serde::from_slice(&b).unwrap();
@@ -118,7 +119,7 @@ pub trait AdaptiveCorpus {
 ///
 /// # Debugging
 /// - See commented code in module `test::si_compare_all_trigrams`
-/// ```
+/// ```ignore
 /// if tg == &['†', 'a', 'h'] { ... }
 /// ```
 impl AdaptiveCorpus for Corpus {
