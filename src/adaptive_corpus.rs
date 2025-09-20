@@ -24,76 +24,19 @@ use kc::Corpus;
 #[cfg(test)]
 mod tests;
 
-/// Specialized methods implemented per expansion-length to use generic [Expansion] methods.
-pub trait ExpansionBase<O> {
-    fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32;
-}
-
-/// Generic methods implemented per ngram-length but abstracted over expansion-length via
-/// [ExpansionBase].
-pub trait Expansion<O, N>: ExpansionBase<N> {
-    fn new(old: O, new: N) -> Self;
-    fn add_count<U: CorpusExt>(&mut self, corpus: &mut U);
-    fn read_count(&self) -> u32;
-    fn set_count(&mut self, count: u32);
-}
-
-/// Expansions derived from a trigram.
-pub struct TrigramExpansions {
-    left: Option<TrigramExpansion<[char; 4]>>,
-    right: Option<TrigramExpansion<[char; 4]>>,
-    both: Option<TrigramExpansion<[char; 5]>>,
-}
-
-/// Expansion derived from a trigram.
-pub struct TrigramExpansion<O> {
-    /// Four to five character expansion derived from a modified trigram.
+pub struct ExpansionStruct<O, N> {
     old: O,
-    /// New trigram post-transformation.
-    new: [char; 3],
-    /// Frequency of `old` in `corpus`.
+    new: N,
     count: Option<u32>,
 }
 
-impl ExpansionBase<[char; 3]> for TrigramExpansion<[char; 4]> {
-    /// Count quadgrams.
-    fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32 {
-        let idx = corpus.corpus_quadgram(&self.old);
-        corpus.get_quadgrams()[idx]
-    }
-}
-
-impl ExpansionBase<[char; 3]> for TrigramExpansion<[char; 5]> {
-    /// Count pentagrams.
-    fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32 {
-        let idx = corpus.corpus_pentagram(&self.old);
-        corpus.get_pentagrams()[idx]
-    }
-}
-
-/// Generic methods for trigram-expansions abstracted over [ExpansionBase].
-impl<O> Expansion<O, [char; 3]> for TrigramExpansion<O>
-where
-    TrigramExpansion<O>: ExpansionBase<[char; 3]>,
-{
-    fn new(old: O, new: [char; 3]) -> Self {
-        TrigramExpansion {
+impl<O, N> ExpansionStruct<O, N> {
+    fn new(old: O, new: N) -> Self {
+        Self {
             old,
             new,
             count: None,
         }
-    }
-
-    /// Add `self.count` to trigram `self.new` (and eqiv. skipgram).
-    fn add_count<U: CorpusExt>(&mut self, corpus: &mut U) {
-        let idx = corpus.corpus_trigram(&self.new);
-        corpus.get_trigrams()[idx] += self.read_count();
-
-        // Skipgrams
-        // XXX: Half-assed, assumes all corpus chars are valid.
-        let new_sg = &[self.new[0], self.new[2]];
-        let new_sg_idx = corpus.corpus_bigram(new_sg);
-        corpus.get_skipgrams()[new_sg_idx] += self.read_count();
     }
 
     fn read_count(&self) -> u32 {
@@ -105,16 +48,55 @@ where
     }
 }
 
-/// Generic methods for adapting ngram frequencies to reflect bigram substitutions.
-pub trait AdaptiveCorpusBase {
-    fn adapt_interior_ngram<T: Expansion<O, N>, O, N>(&mut self, exp: &mut Option<T>, bcount: u32);
+trait GetCount<O, N> {
+    fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32;
 }
 
-impl<U: CorpusExt> AdaptiveCorpusBase for U {
-    fn adapt_interior_ngram<T: Expansion<O, N>, O, N>(&mut self, exp: &mut Option<T>, bcount: u32) {
+pub struct Expansions<N, S, L>
+{
+    left: Option<ExpansionStruct<S, N>>,
+    right: Option<ExpansionStruct<S, N>>,
+    both: Option<ExpansionStruct<L, N>>,
+}
+
+impl GetCount<[char; 4], [char; 3]> for ExpansionStruct<[char; 4], [char; 3]> {
+    /// Count quadgrams.
+    fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32 {
+        let idx = corpus.corpus_quadgram(&self.old);
+        corpus.get_quadgrams()[idx]
+    }
+}
+impl GetCount<[char; 5], [char; 3]> for ExpansionStruct<[char; 5], [char; 3]> {
+    /// Count pentagrams.
+    fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32 {
+        let idx = corpus.corpus_pentagram(&self.old);
+        corpus.get_pentagrams()[idx]
+    }
+}
+
+/// Generic methods for adapting ngram frequencies to reflect bigram substitutions.
+pub trait AdaptiveCorpusBase<N> {
+    fn adapt_interior_ngram<O>(&mut self, exp: &mut Option<ExpansionStruct<O, N>>, bcount: u32)
+    where
+        ExpansionStruct<O, N>: GetCount<O, N>;
+}
+
+impl<U: CorpusExt> AdaptiveCorpusBase<[char;3]> for U {
+    fn adapt_interior_ngram<O>(&mut self, exp: &mut Option<ExpansionStruct<O, [char; 3]>>, bcount: u32)
+    where
+        ExpansionStruct<O, [char; 3]>: GetCount<O, [char; 3]>,
+    {
         if let Some(exp) = exp {
             exp.set_count(exp.get_count(self) - bcount);
-            exp.add_count(self)
+
+            let idx = self.corpus_trigram(&exp.new);
+            self.get_trigrams()[idx] += exp.read_count();
+
+            // Skipgrams
+            // XXX: Half-assed, assumes all corpus chars are valid.
+            let new_sg = &[exp.new[0], exp.new[2]];
+            let new_sg_idx = self.corpus_bigram(new_sg);
+            self.get_skipgrams()[new_sg_idx] += exp.read_count();
         }
     }
 }
@@ -122,7 +104,7 @@ impl<U: CorpusExt> AdaptiveCorpusBase for U {
 /// Specialized methods for adapting ngram frequencies to reflect bigram substitutions.
 pub trait AdaptiveCorpus: CorpusExt {
     fn adapt_trigrams(&mut self, old: [char; 2], new: [char; 2]);
-    fn expand_trigram(tg: &[char], old: [char; 2], new: [char; 2]) -> TrigramExpansions;
+    fn expand_trigram(tg: &[char], old: [char; 2], new: [char; 2]) -> Expansions<[char; 3], [char; 4], [char; 5]>;
     fn adapt_interior_trigrams(&mut self, old: [char; 2], new: [char; 2]);
     fn adapt_boundary_trigram(&mut self, old_idx: usize, old_tg: &[char], new_tg: &[char; 3]);
     fn adapt_boundary_trigrams(&mut self, old: [char; 2], new: [char; 2]);
@@ -135,18 +117,19 @@ pub trait AdaptiveCorpus: CorpusExt {
 /// ```ignore
 /// if tg == &['†', 'a', 'h'] { ... }
 /// ```
-impl AdaptiveCorpus for Corpus {
+impl AdaptiveCorpus for Corpus
+{
     fn adapt_trigrams(&mut self, old: [char; 2], new: [char; 2]) {
         self.adapt_interior_trigrams(old, new);
         self.adapt_boundary_trigrams(old, new);
     }
 
-    fn expand_trigram(tg: &[char], old: [char; 2], new: [char; 2]) -> TrigramExpansions {
+    fn expand_trigram(tg: &[char], old: [char; 2], new: [char; 2]) -> Expansions<[char; 3], [char; 4], [char; 5]> {
         let (mut left, mut right, mut both) = (None, None, None);
 
         // If the trigram starts with the old bigram suffix, left
         if tg[0] == old[1] {
-            left = Some(TrigramExpansion::new(
+            left = Some(ExpansionStruct::new(
                 [old[0], tg[0], tg[1], tg[2]],
                 [new[1], tg[1], tg[2]],
             ));
@@ -154,32 +137,22 @@ impl AdaptiveCorpus for Corpus {
 
         // If the trigram ends with the old bigram prefix, right
         if tg[2] == old[0] {
-            right = Some(TrigramExpansion::new(
+            right = Some(ExpansionStruct::new(
                 [tg[0], tg[1], tg[2], old[1]],
                 [tg[0], tg[1], new[0]],
             ));
 
             // If both, both
             if let Some(ref left) = left {
-                both = Some(TrigramExpansion::new(
+                both = Some(ExpansionStruct::new(
                     [left.old[0], left.old[1], left.old[2], left.old[3], old[1]],
                     [left.new[0], left.new[1], new[0]],
                 ));
             }
         }
 
-        TrigramExpansions { left, right, both }
+        Expansions { left, right, both }
     }
-
-    // fn adapt_interior_trigram<T, O, N>(&mut self, exp: &mut Option<T>, bcount: u32)
-    // where
-    //     T: Expansion<O, N>,
-    // {
-    //     if let Some(exp) = exp {
-    //         exp.set_count(exp.get_count(self) - bcount);
-    //         exp.add_count(self)
-    //     }
-    // }
 
     fn adapt_interior_trigrams(&mut self, old: [char; 2], new: [char; 2]) {
         let num_trigrams = self.get_trigrams().len();
