@@ -26,18 +26,14 @@ mod tests;
 
 /// Specialized methods implemented per expansion-length to use generic [Expansion] methods.
 pub trait ExpansionBase<O> {
-    fn get_count<U>(&self, corpus: &mut U) -> u32
-    where
-        U: CorpusExt;
+    fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32;
 }
 
 /// Generic methods implemented per ngram-length but abstracted over expansion-length via
 /// [ExpansionBase].
 pub trait Expansion<O, N>: ExpansionBase<N> {
     fn new(old: O, new: N) -> Self;
-    fn add_count<U>(&mut self, corpus: &mut U)
-    where
-        U: CorpusExt;
+    fn add_count<U: CorpusExt>(&mut self, corpus: &mut U);
     fn read_count(&self) -> u32;
     fn set_count(&mut self, count: u32);
 }
@@ -61,10 +57,7 @@ pub struct TrigramExpansion<O> {
 
 impl ExpansionBase<[char; 3]> for TrigramExpansion<[char; 4]> {
     /// Count quadgrams.
-    fn get_count<U>(&self, corpus: &mut U) -> u32
-    where
-        U: CorpusExt,
-    {
+    fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32 {
         let idx = corpus.corpus_quadgram(&self.old);
         corpus.get_quadgrams()[idx]
     }
@@ -72,10 +65,7 @@ impl ExpansionBase<[char; 3]> for TrigramExpansion<[char; 4]> {
 
 impl ExpansionBase<[char; 3]> for TrigramExpansion<[char; 5]> {
     /// Count pentagrams.
-    fn get_count<U>(&self, corpus: &mut U) -> u32
-    where
-        U: CorpusExt,
-    {
+    fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32 {
         let idx = corpus.corpus_pentagram(&self.old);
         corpus.get_pentagrams()[idx]
     }
@@ -95,10 +85,7 @@ where
     }
 
     /// Add `self.count` to trigram `self.new` (and eqiv. skipgram).
-    fn add_count<U>(&mut self, corpus: &mut U)
-    where
-        U: CorpusExt,
-    {
+    fn add_count<U: CorpusExt>(&mut self, corpus: &mut U) {
         let idx = corpus.corpus_trigram(&self.new);
         corpus.get_trigrams()[idx] += self.read_count();
 
@@ -120,16 +107,11 @@ where
 
 /// Generic methods for adapting ngram frequencies to reflect bigram substitutions.
 pub trait AdaptiveCorpusBase {
-    fn adapt_interior_ngram<T, O, N>(&mut self, exp: &mut Option<T>, bcount: u32)
-    where
-        T: Expansion<O, N>;
+    fn adapt_interior_ngram<T: Expansion<O, N>, O, N>(&mut self, exp: &mut Option<T>, bcount: u32);
 }
 
 impl<U: CorpusExt> AdaptiveCorpusBase for U {
-    fn adapt_interior_ngram<T, O, N>(&mut self, exp: &mut Option<T>, bcount: u32)
-    where
-        T: Expansion<O, N>,
-    {
+    fn adapt_interior_ngram<T: Expansion<O, N>, O, N>(&mut self, exp: &mut Option<T>, bcount: u32) {
         if let Some(exp) = exp {
             exp.set_count(exp.get_count(self) - bcount);
             exp.add_count(self)
