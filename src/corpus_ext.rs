@@ -7,7 +7,7 @@
 pub(crate) use kc::Corpus;
 
 /// Provides trait implementations on Corpus access to it's struct fields.
-pub(crate) trait CorpusExt {
+pub trait CorpusExt {
     fn corpus_bigram(&mut self, bigram: &[char; 2]) -> usize;
     fn corpus_trigram(&mut self, trigram: &[char; 3]) -> usize;
     fn corpus_quadgram(&mut self, trigram: &[char; 4]) -> usize;
