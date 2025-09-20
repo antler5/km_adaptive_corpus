@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
-use crate::adaptive_corpus::*;
 use crate::CorpusExt;
+use crate::adaptive_corpus::*;
 use kc::Corpus;
 
 impl GetCount<[char; 2], [char; 1]> for ExpansionStruct<[char; 2], [char; 1]> {
@@ -49,18 +49,12 @@ impl Expand<[char; 1], [char; 2], [char; 3]> for [char; 1] {
 
         // If the char starts with the old char suffix, left
         if self[0] == old[1] {
-            left = Some(ExpansionStruct::new(
-                [old[0], self[0]],
-                [new[1]],
-            ));
+            left = Some(ExpansionStruct::new([old[0], self[0]], [new[1]]));
         }
 
         // If the char ends with the old char prefix, right
         if self[0] == old[0] {
-            right = Some(ExpansionStruct::new(
-                [self[0], old[1]],
-                [new[0]],
-            ));
+            right = Some(ExpansionStruct::new([self[0], old[1]], [new[0]]));
 
             // If both, both
             if let Some(ref left) = left {
@@ -118,6 +112,6 @@ impl AdaptiveCorpus<[char; 1]> for Corpus {
         }
     }
 
-    fn adapt_interior_ngrams(&mut self, old: [char; 2], new: [char; 2]) { }
-    fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char]) { }
+    fn adapt_interior_ngrams(&mut self, old: [char; 2], new: [char; 2]) {}
+    fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char]) {}
 }

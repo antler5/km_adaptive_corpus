@@ -45,7 +45,7 @@ fn verify_corpus_si_pre(corpus: Corpus) {
 }
 
 #[cfg(test)]
-fn verify_corpus_si_post(corpus: Corpus) {
+fn verify_corpus_si_he(corpus: Corpus) {
     // Monograms
     assert_eq!(corpus.count_char('e'), 41768210);
     assert_eq!(corpus.count_char('†'), 8729312);

@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
-use crate::adaptive_corpus::*;
 use crate::CorpusExt;
+use crate::adaptive_corpus::*;
 use kc::Corpus;
 
 impl GetCount<[char; 3], [char; 2]> for ExpansionStruct<[char; 3], [char; 2]> {
