@@ -66,14 +66,14 @@ trait Expand<N, S, L> {
 }
 
 pub trait AdaptiveCorpusBase<N>: CorpusExt {
-    fn adapt_interior_ngram<O>(&mut self, exp: &mut Option<ExpansionStruct<O, N>>, bcount: u32)
+    fn adapt_boundary_ngram<O>(&mut self, exp: &mut Option<ExpansionStruct<O, N>>, bcount: u32)
     where
         ExpansionStruct<O, N>: GetCount<O, N>;
 }
 
 pub trait AdaptiveCorpus<N>: AdaptiveCorpusBase<N> {
     fn adapt_ngrams(&mut self, old: [char; 2], new: [char; 2]);
-    fn adapt_interior_ngrams(&mut self, old: [char; 2], new: [char; 2]);
     fn adapt_boundary_ngrams(&mut self, old: [char; 2], new: [char; 2]);
-    fn adapt_boundary_ngram(&mut self, old_idx: usize, old_tg: &[char], new_tg: &[char; 3]);
+    fn adapt_interior_ngrams(&mut self, old: [char; 2], new: [char; 2]);
+    fn adapt_interior_ngram(&mut self, old_idx: usize, old_tg: &[char], new_tg: &[char; 3]);
 }

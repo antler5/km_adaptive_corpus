@@ -23,7 +23,7 @@ impl GetCount<[char; 5], [char; 3]> for ExpansionStruct<[char; 5], [char; 3]> {
 }
 
 impl<U: CorpusExt> AdaptiveCorpusBase<[char; 3]> for U {
-    fn adapt_interior_ngram<O>(
+    fn adapt_boundary_ngram<O>(
         &mut self,
         exp: &mut Option<ExpansionStruct<O, [char; 3]>>,
         bcount: u32,
@@ -90,11 +90,11 @@ impl Expand<[char; 3], [char; 4], [char; 5]> for [char; 3] {
 /// ```
 impl AdaptiveCorpus<[char; 3]> for Corpus {
     fn adapt_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
-        self.adapt_interior_ngrams(old, new);
         self.adapt_boundary_ngrams(old, new);
+        self.adapt_interior_ngrams(old, new);
     }
 
-    fn adapt_interior_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
+    fn adapt_boundary_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
         let num_trigrams = self.get_trigrams().len();
         for i in 0..num_trigrams {
             let tg = self.uncorpus_trigram(i);
@@ -111,10 +111,10 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
                 }
             }
 
-            self.adapt_interior_ngram(&mut exps.both, 0);
+            self.adapt_boundary_ngram(&mut exps.both, 0);
             let bcount = sum!(exps.both);
-            self.adapt_interior_ngram(&mut exps.left, bcount);
-            self.adapt_interior_ngram(&mut exps.right, bcount);
+            self.adapt_boundary_ngram(&mut exps.left, bcount);
+            self.adapt_boundary_ngram(&mut exps.right, bcount);
 
             let sum: u32 = sum!(exps.left, exps.right, exps.both);
 
@@ -128,20 +128,20 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
         }
     }
 
-    fn adapt_boundary_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
+    fn adapt_interior_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
         let num_trigrams = self.get_trigrams().len();
         for i in 0..num_trigrams {
             let tg = self.uncorpus_trigram(i);
             if tg[0] == old[0] && tg[1] == old[1] {
-                self.adapt_boundary_ngram(i, &tg[..], &[new[0], new[1], tg[2]]);
+                self.adapt_interior_ngram(i, &tg[..], &[new[0], new[1], tg[2]]);
             }
             if tg[1] == old[0] && tg[2] == old[1] {
-                self.adapt_boundary_ngram(i, &tg[..], &[tg[0], new[0], new[1]]);
+                self.adapt_interior_ngram(i, &tg[..], &[tg[0], new[0], new[1]]);
             }
         }
     }
 
-    fn adapt_boundary_ngram(&mut self, old_idx: usize, old_tg: &[char], new_tg: &[char; 3]) {
+    fn adapt_interior_ngram(&mut self, old_idx: usize, old_tg: &[char], new_tg: &[char; 3]) {
         let freq = self.get_trigrams()[old_idx];
         self.get_trigrams()[old_idx] -= freq;
 
