@@ -101,13 +101,48 @@ impl<U: CorpusExt> AdaptiveCorpusBase<[char;3]> for U {
     }
 }
 
+trait Expand<N, S, L> {
+    fn expand(&self, old: [char; 2], new: [char; 2]) -> Expansions<N, S, L>;
+}
+
+impl Expand<[char; 3], [char; 4], [char; 5]> for [char; 3] {
+    fn expand(&self, old: [char; 2], new: [char; 2]) -> Expansions<[char; 3], [char; 4], [char; 5]> {
+        let (mut left, mut right, mut both) = (None, None, None);
+
+        // If the trigram starts with the old bigram suffix, left
+        if self[0] == old[1] {
+            left = Some(ExpansionStruct::new(
+                [old[0], self[0], self[1], self[2]],
+                [new[1], self[1], self[2]],
+            ));
+        }
+
+        // If the trigram ends with the old bigram prefix, right
+        if self[2] == old[0] {
+            right = Some(ExpansionStruct::new(
+                [self[0], self[1], self[2], old[1]],
+                [self[0], self[1], new[0]],
+            ));
+
+            // If both, both
+            if let Some(ref left) = left {
+                both = Some(ExpansionStruct::new(
+                    [left.old[0], left.old[1], left.old[2], left.old[3], old[1]],
+                    [left.new[0], left.new[1], new[0]],
+                ));
+            }
+        }
+
+        Expansions { left, right, both }
+    }
+}
+
 /// Specialized methods for adapting ngram frequencies to reflect bigram substitutions.
 pub trait AdaptiveCorpus: CorpusExt {
     fn adapt_trigrams(&mut self, old: [char; 2], new: [char; 2]);
-    fn expand_trigram(tg: &[char], old: [char; 2], new: [char; 2]) -> Expansions<[char; 3], [char; 4], [char; 5]>;
     fn adapt_interior_trigrams(&mut self, old: [char; 2], new: [char; 2]);
-    fn adapt_boundary_trigram(&mut self, old_idx: usize, old_tg: &[char], new_tg: &[char; 3]);
     fn adapt_boundary_trigrams(&mut self, old: [char; 2], new: [char; 2]);
+    fn adapt_boundary_trigram(&mut self, old_idx: usize, old_tg: &[char], new_tg: &[char; 3]);
 }
 
 /// Methods for adapting ngram frequencies to reflect bigram substitutions.
@@ -124,42 +159,12 @@ impl AdaptiveCorpus for Corpus
         self.adapt_boundary_trigrams(old, new);
     }
 
-    fn expand_trigram(tg: &[char], old: [char; 2], new: [char; 2]) -> Expansions<[char; 3], [char; 4], [char; 5]> {
-        let (mut left, mut right, mut both) = (None, None, None);
-
-        // If the trigram starts with the old bigram suffix, left
-        if tg[0] == old[1] {
-            left = Some(ExpansionStruct::new(
-                [old[0], tg[0], tg[1], tg[2]],
-                [new[1], tg[1], tg[2]],
-            ));
-        }
-
-        // If the trigram ends with the old bigram prefix, right
-        if tg[2] == old[0] {
-            right = Some(ExpansionStruct::new(
-                [tg[0], tg[1], tg[2], old[1]],
-                [tg[0], tg[1], new[0]],
-            ));
-
-            // If both, both
-            if let Some(ref left) = left {
-                both = Some(ExpansionStruct::new(
-                    [left.old[0], left.old[1], left.old[2], left.old[3], old[1]],
-                    [left.new[0], left.new[1], new[0]],
-                ));
-            }
-        }
-
-        Expansions { left, right, both }
-    }
-
     fn adapt_interior_trigrams(&mut self, old: [char; 2], new: [char; 2]) {
         let num_trigrams = self.get_trigrams().len();
         for i in 0..num_trigrams {
             let tg = self.uncorpus_trigram(i);
 
-            let mut exps = Corpus::expand_trigram(&tg[..], old, new);
+            let mut exps = [tg[0], tg[1], tg[2]].expand(old, new);
 
             macro_rules! sum {
                 ($($tg:expr),*) => {
@@ -188,6 +193,19 @@ impl AdaptiveCorpus for Corpus
         }
     }
 
+    fn adapt_boundary_trigrams(&mut self, old: [char; 2], new: [char; 2]) {
+        let num_trigrams = self.get_trigrams().len();
+        for i in 0..num_trigrams {
+            let tg = self.uncorpus_trigram(i);
+            if tg[0] == old[0] && tg[1] == old[1] {
+                self.adapt_boundary_trigram(i, &tg[..], &[new[0], new[1], tg[2]]);
+            }
+            if tg[1] == old[0] && tg[2] == old[1] {
+                self.adapt_boundary_trigram(i, &tg[..], &[tg[0], new[0], new[1]]);
+            }
+        }
+    }
+
     fn adapt_boundary_trigram(&mut self, old_idx: usize, old_tg: &[char], new_tg: &[char; 3]) {
         let freq = self.get_trigrams()[old_idx];
         self.get_trigrams()[old_idx] -= freq;
@@ -202,18 +220,5 @@ impl AdaptiveCorpus for Corpus
         let new_sg = &[new_tg[0], new_tg[2]];
         let new_idx = self.corpus_bigram(new_sg);
         self.get_skipgrams()[new_idx] += freq;
-    }
-
-    fn adapt_boundary_trigrams(&mut self, old: [char; 2], new: [char; 2]) {
-        let num_trigrams = self.get_trigrams().len();
-        for i in 0..num_trigrams {
-            let tg = self.uncorpus_trigram(i);
-            if tg[0] == old[0] && tg[1] == old[1] {
-                self.adapt_boundary_trigram(i, &tg[..], &[new[0], new[1], tg[2]]);
-            }
-            if tg[1] == old[0] && tg[2] == old[1] {
-                self.adapt_boundary_trigram(i, &tg[..], &[tg[0], new[0], new[1]]);
-            }
-        }
     }
 }
