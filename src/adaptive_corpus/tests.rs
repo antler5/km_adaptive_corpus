@@ -5,12 +5,14 @@
 use super::*;
 use std::fs;
 
+use kc::Corpus;
+
 fn verify_corpus_si_pre(corpus: Corpus) {
     // Monograms
     assert_eq!(corpus.count_char('e'), 50497522);
     assert_eq!(corpus.count_char('†'), 0);
 
-    // // // Bigrams
+    // Bigrams
     assert_eq!(corpus.count_bigram(['h', 'e']), 8729312);
     assert_eq!(corpus.count_bigram(['h', '†']), 0);
 
@@ -48,14 +50,14 @@ fn verify_corpus_si_post(corpus: Corpus) {
     // assert_eq!(corpus.count_char('e'), 41768210);
     // assert_eq!(corpus.count_char('†'), 8729312);
 
-    // // Bigrams
-    // assert_eq!(corpus.count_bigram(['h', 'e']), 0);
-    // assert_eq!(corpus.count_bigram(['h', '†']), 8729312);
-    // assert_eq!(corpus.count_bigram(['†', 'e']), 40073);
-    // assert_eq!(corpus.count_bigram(['†', 'a']), 248245);
-    // assert_eq!(corpus.count_bigram(['†', 'i']), 253922);
-    // assert_eq!(corpus.count_bigram(['†', 'o']), 12705);
-    // assert_eq!(corpus.count_bigram(['†', ' ']), 5421447);
+    // Bigrams
+    assert_eq!(corpus.count_bigram(['h', 'e']), 0);
+    assert_eq!(corpus.count_bigram(['h', '†']), 8729312);
+    assert_eq!(corpus.count_bigram(['†', 'e']), 40073);
+    assert_eq!(corpus.count_bigram(['†', 'a']), 248245);
+    assert_eq!(corpus.count_bigram(['†', 'i']), 253922);
+    assert_eq!(corpus.count_bigram(['†', 'o']), 12705);
+    assert_eq!(corpus.count_bigram(['†', ' ']), 5421447);
 
     // Trigrams
     assert_eq!(corpus.count_trigram(['t', 'h', 'e']), 0);
@@ -103,7 +105,9 @@ fn si_pre() {
 fn si_post() {
     let b = fs::read("./corpora/shai-iweb.corpus").expect("couldn't read corpus file");
     let mut corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
-    corpus.adapt_ngrams(['h', 'e'], ['h', '†']);
+    // corpus.adapt_ngrams(['h', 'e'], ['h', '†']);
+    <Corpus as AdaptiveCorpus<[char; 2]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
+    <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
     verify_corpus_si_post(corpus);
 }
 
@@ -117,14 +121,17 @@ fn si_ref() {
 /// XXX: Can OOM in release-mode.
 #[ignore]
 #[test]
-fn si_compare_all_trigrams() {
+fn si_compare_all_ngrams() {
     let b = fs::read("./corpora/shai-iweb.corpus").expect("couldn't read corpus file");
     let mut corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
-    corpus.adapt_ngrams(['h', 'e'], ['h', '†']);
+    // corpus.adapt_ngrams(['h', 'e'], ['h', '†']);
+    <Corpus as AdaptiveCorpus<[char; 2]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
+    <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
 
     let b = fs::read("./corpora/shai-iweb-he.corpus").expect("couldn't read corpus file");
     let ref_corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
 
+    assert_eq!(ref_corpus.bigrams, corpus.bigrams);
     assert_eq!(ref_corpus.trigrams, corpus.trigrams);
 
     // let num_trigrams = corpus.trigrams.len();

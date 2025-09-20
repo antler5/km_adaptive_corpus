@@ -90,8 +90,10 @@ impl Expand<[char; 3], [char; 4], [char; 5]> for [char; 3] {
 /// ```
 impl AdaptiveCorpus<[char; 3]> for Corpus {
     fn adapt_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
-        self.adapt_boundary_ngrams(old, new);
-        self.adapt_interior_ngrams(old, new);
+        // self.adapt_boundary_ngrams(old, new);
+        <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_boundary_ngrams(self, old, new);
+        // self.adapt_interior_ngrams(old, new);
+        <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_interior_ngrams(self, old, new);
     }
 
     fn adapt_boundary_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
@@ -133,26 +135,28 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
         for i in 0..num_trigrams {
             let tg = self.uncorpus_trigram(i);
             if tg[0] == old[0] && tg[1] == old[1] {
-                self.adapt_interior_ngram(i, &tg[..], &[new[0], new[1], tg[2]]);
+                // self.adapt_interior_ngram(i, &tg[..], &[new[0], new[1], tg[2]]);
+                <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_interior_ngram(self, i, &tg[..], &[new[0], new[1], tg[2]]);
             }
             if tg[1] == old[0] && tg[2] == old[1] {
-                self.adapt_interior_ngram(i, &tg[..], &[tg[0], new[0], new[1]]);
+                // self.adapt_interior_ngram(i, &tg[..], &[tg[0], new[0], new[1]]);
+                <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_interior_ngram(self, i, &tg[..], &[tg[0], new[0], new[1]]);
             }
         }
     }
 
-    fn adapt_interior_ngram(&mut self, old_idx: usize, old_tg: &[char], new_tg: &[char; 3]) {
+    fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char]) {
         let freq = self.get_trigrams()[old_idx];
         self.get_trigrams()[old_idx] -= freq;
 
-        let new_idx = self.corpus_trigram(new_tg);
+        let new_idx = self.corpus_trigram(&[new_ng[0], new_ng[1], new_ng[2]]);
         self.get_trigrams()[new_idx] += freq;
 
         // Skipgrams
         // XXX: Half-assed skipgrams, assumes all corpus chars were valid.
-        let old_idx = self.corpus_bigram(&[old_tg[0], old_tg[2]]);
+        let old_idx = self.corpus_bigram(&[old_ng[0], old_ng[2]]);
         self.get_skipgrams()[old_idx] -= freq;
-        let new_sg = &[new_tg[0], new_tg[2]];
+        let new_sg = &[new_ng[0], new_ng[2]];
         let new_idx = self.corpus_bigram(new_sg);
         self.get_skipgrams()[new_idx] += freq;
     }
