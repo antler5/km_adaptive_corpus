@@ -53,10 +53,6 @@ impl<O, N> ExpansionStruct<O, N> {
     }
 }
 
-pub trait GetCount<O, N> {
-    fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32;
-}
-
 pub struct Expansions<N, S, L> {
     left: Option<ExpansionStruct<S, N>>,
     right: Option<ExpansionStruct<S, N>>,
@@ -65,6 +61,10 @@ pub struct Expansions<N, S, L> {
 
 trait Expand<N, S, L> {
     fn expand(&self, old: [char; 2], new: [char; 2]) -> Expansions<N, S, L>;
+}
+
+pub trait GetCount<O, N> {
+    fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32;
 }
 
 pub trait AdaptiveCorpusBase<N>: CorpusExt {
