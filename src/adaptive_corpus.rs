@@ -24,6 +24,8 @@ use kc::Corpus;
 #[cfg(test)]
 mod tests;
 
+// # Generics
+
 pub struct ExpansionStruct<O, N> {
     old: O,
     new: N,
@@ -48,16 +50,34 @@ impl<O, N> ExpansionStruct<O, N> {
     }
 }
 
-trait GetCount<O, N> {
+pub trait GetCount<O, N> {
     fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32;
 }
 
-pub struct Expansions<N, S, L>
-{
+pub struct Expansions<N, S, L> {
     left: Option<ExpansionStruct<S, N>>,
     right: Option<ExpansionStruct<S, N>>,
     both: Option<ExpansionStruct<L, N>>,
 }
+
+trait Expand<N, S, L> {
+    fn expand(&self, old: [char; 2], new: [char; 2]) -> Expansions<N, S, L>;
+}
+
+pub trait AdaptiveCorpusBase<N>: CorpusExt {
+    fn adapt_interior_ngram<O>(&mut self, exp: &mut Option<ExpansionStruct<O, N>>, bcount: u32)
+    where
+        ExpansionStruct<O, N>: GetCount<O, N>;
+}
+
+pub trait AdaptiveCorpus<N>: AdaptiveCorpusBase<N> {
+    fn adapt_ngrams(&mut self, old: [char; 2], new: [char; 2]);
+    fn adapt_interior_ngrams(&mut self, old: [char; 2], new: [char; 2]);
+    fn adapt_boundary_ngrams(&mut self, old: [char; 2], new: [char; 2]);
+    fn adapt_boundary_ngram(&mut self, old_idx: usize, old_tg: &[char], new_tg: &[char; 3]);
+}
+
+// # Trigrams
 
 impl GetCount<[char; 4], [char; 3]> for ExpansionStruct<[char; 4], [char; 3]> {
     /// Count quadgrams.
@@ -66,6 +86,7 @@ impl GetCount<[char; 4], [char; 3]> for ExpansionStruct<[char; 4], [char; 3]> {
         corpus.get_quadgrams()[idx]
     }
 }
+
 impl GetCount<[char; 5], [char; 3]> for ExpansionStruct<[char; 5], [char; 3]> {
     /// Count pentagrams.
     fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32 {
@@ -74,16 +95,12 @@ impl GetCount<[char; 5], [char; 3]> for ExpansionStruct<[char; 5], [char; 3]> {
     }
 }
 
-/// Generic methods for adapting ngram frequencies to reflect bigram substitutions.
-pub trait AdaptiveCorpusBase<N> {
-    fn adapt_interior_ngram<O>(&mut self, exp: &mut Option<ExpansionStruct<O, N>>, bcount: u32)
-    where
-        ExpansionStruct<O, N>: GetCount<O, N>;
-}
-
-impl<U: CorpusExt> AdaptiveCorpusBase<[char;3]> for U {
-    fn adapt_interior_ngram<O>(&mut self, exp: &mut Option<ExpansionStruct<O, [char; 3]>>, bcount: u32)
-    where
+impl<U: CorpusExt> AdaptiveCorpusBase<[char; 3]> for U {
+    fn adapt_interior_ngram<O>(
+        &mut self,
+        exp: &mut Option<ExpansionStruct<O, [char; 3]>>,
+        bcount: u32,
+    ) where
         ExpansionStruct<O, [char; 3]>: GetCount<O, [char; 3]>,
     {
         if let Some(exp) = exp {
@@ -101,12 +118,12 @@ impl<U: CorpusExt> AdaptiveCorpusBase<[char;3]> for U {
     }
 }
 
-trait Expand<N, S, L> {
-    fn expand(&self, old: [char; 2], new: [char; 2]) -> Expansions<N, S, L>;
-}
-
 impl Expand<[char; 3], [char; 4], [char; 5]> for [char; 3] {
-    fn expand(&self, old: [char; 2], new: [char; 2]) -> Expansions<[char; 3], [char; 4], [char; 5]> {
+    fn expand(
+        &self,
+        old: [char; 2],
+        new: [char; 2],
+    ) -> Expansions<[char; 3], [char; 4], [char; 5]> {
         let (mut left, mut right, mut both) = (None, None, None);
 
         // If the trigram starts with the old bigram suffix, left
@@ -137,14 +154,6 @@ impl Expand<[char; 3], [char; 4], [char; 5]> for [char; 3] {
     }
 }
 
-/// Specialized methods for adapting ngram frequencies to reflect bigram substitutions.
-pub trait AdaptiveCorpus: CorpusExt {
-    fn adapt_trigrams(&mut self, old: [char; 2], new: [char; 2]);
-    fn adapt_interior_trigrams(&mut self, old: [char; 2], new: [char; 2]);
-    fn adapt_boundary_trigrams(&mut self, old: [char; 2], new: [char; 2]);
-    fn adapt_boundary_trigram(&mut self, old_idx: usize, old_tg: &[char], new_tg: &[char; 3]);
-}
-
 /// Methods for adapting ngram frequencies to reflect bigram substitutions.
 ///
 /// # Debugging
@@ -152,14 +161,13 @@ pub trait AdaptiveCorpus: CorpusExt {
 /// ```ignore
 /// if tg == &['†', 'a', 'h'] { ... }
 /// ```
-impl AdaptiveCorpus for Corpus
-{
-    fn adapt_trigrams(&mut self, old: [char; 2], new: [char; 2]) {
-        self.adapt_interior_trigrams(old, new);
-        self.adapt_boundary_trigrams(old, new);
+impl AdaptiveCorpus<[char; 3]> for Corpus {
+    fn adapt_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
+        self.adapt_interior_ngrams(old, new);
+        self.adapt_boundary_ngrams(old, new);
     }
 
-    fn adapt_interior_trigrams(&mut self, old: [char; 2], new: [char; 2]) {
+    fn adapt_interior_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
         let num_trigrams = self.get_trigrams().len();
         for i in 0..num_trigrams {
             let tg = self.uncorpus_trigram(i);
@@ -193,20 +201,20 @@ impl AdaptiveCorpus for Corpus
         }
     }
 
-    fn adapt_boundary_trigrams(&mut self, old: [char; 2], new: [char; 2]) {
+    fn adapt_boundary_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
         let num_trigrams = self.get_trigrams().len();
         for i in 0..num_trigrams {
             let tg = self.uncorpus_trigram(i);
             if tg[0] == old[0] && tg[1] == old[1] {
-                self.adapt_boundary_trigram(i, &tg[..], &[new[0], new[1], tg[2]]);
+                self.adapt_boundary_ngram(i, &tg[..], &[new[0], new[1], tg[2]]);
             }
             if tg[1] == old[0] && tg[2] == old[1] {
-                self.adapt_boundary_trigram(i, &tg[..], &[tg[0], new[0], new[1]]);
+                self.adapt_boundary_ngram(i, &tg[..], &[tg[0], new[0], new[1]]);
             }
         }
     }
 
-    fn adapt_boundary_trigram(&mut self, old_idx: usize, old_tg: &[char], new_tg: &[char; 3]) {
+    fn adapt_boundary_ngram(&mut self, old_idx: usize, old_tg: &[char], new_tg: &[char; 3]) {
         let freq = self.get_trigrams()[old_idx];
         self.get_trigrams()[old_idx] -= freq;
 
