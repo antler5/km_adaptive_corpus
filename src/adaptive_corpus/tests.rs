@@ -46,9 +46,9 @@ fn verify_corpus_si_pre(corpus: Corpus) {
 
 #[cfg(test)]
 fn verify_corpus_si_post(corpus: Corpus) {
-    // // Monograms
-    // assert_eq!(corpus.count_char('e'), 41768210);
-    // assert_eq!(corpus.count_char('†'), 8729312);
+    // Monograms
+    assert_eq!(corpus.count_char('e'), 41768210);
+    assert_eq!(corpus.count_char('†'), 8729312);
 
     // Bigrams
     assert_eq!(corpus.count_bigram(['h', 'e']), 0);
@@ -106,6 +106,7 @@ fn si_post() {
     let b = fs::read("./corpora/shai-iweb.corpus").expect("couldn't read corpus file");
     let mut corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
     // corpus.adapt_ngrams(['h', 'e'], ['h', '†']);
+    <Corpus as AdaptiveCorpus<[char; 1]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
     <Corpus as AdaptiveCorpus<[char; 2]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
     <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
     verify_corpus_si_post(corpus);
@@ -125,12 +126,14 @@ fn si_compare_all_ngrams() {
     let b = fs::read("./corpora/shai-iweb.corpus").expect("couldn't read corpus file");
     let mut corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
     // corpus.adapt_ngrams(['h', 'e'], ['h', '†']);
+    <Corpus as AdaptiveCorpus<[char; 1]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
     <Corpus as AdaptiveCorpus<[char; 2]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
     <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
 
     let b = fs::read("./corpora/shai-iweb-he.corpus").expect("couldn't read corpus file");
     let ref_corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
 
+    assert_eq!(ref_corpus.chars, corpus.chars);
     assert_eq!(ref_corpus.bigrams, corpus.bigrams);
     assert_eq!(ref_corpus.trigrams, corpus.trigrams);
 

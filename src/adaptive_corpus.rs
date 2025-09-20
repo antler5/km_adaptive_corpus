@@ -22,6 +22,7 @@ use crate::CorpusExt;
 
 pub mod trigrams;
 pub mod bigrams;
+pub mod monograms;
 
 #[cfg(test)]
 mod tests;

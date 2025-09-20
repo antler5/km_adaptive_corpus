@@ -8,10 +8,12 @@ pub(crate) use kc::Corpus;
 
 /// Provides trait implementations on Corpus access to it's struct fields.
 pub trait CorpusExt {
+    fn corpus_char(&mut self, char: &[char; 1]) -> usize;
     fn corpus_bigram(&mut self, bigram: &[char; 2]) -> usize;
     fn corpus_trigram(&mut self, trigram: &[char; 3]) -> usize;
     fn corpus_quadgram(&mut self, trigram: &[char; 4]) -> usize;
     fn corpus_pentagram(&mut self, trigram: &[char; 5]) -> usize;
+    fn get_chars(&mut self) -> &mut Vec<u32>;
     fn get_bigrams(&mut self) -> &mut Vec<u32>;
     fn get_trigrams(&mut self) -> &mut Vec<u32>;
     fn get_skipgrams(&mut self) -> &mut Vec<u32>;
@@ -28,6 +30,9 @@ pub trait CorpusExt {
 }
 
 impl CorpusExt for Corpus {
+    fn corpus_char(&mut self, char: &[char; 1]) -> usize {
+        Corpus::corpus_char(self, char[0])
+    }
     fn corpus_bigram(&mut self, bigram: &[char; 2]) -> usize {
         Corpus::corpus_bigram(self, bigram)
     }
@@ -39,6 +44,9 @@ impl CorpusExt for Corpus {
     }
     fn corpus_pentagram(&mut self, pentagram: &[char; 5]) -> usize {
         Corpus::corpus_pentagram(self, pentagram)
+    }
+    fn get_chars(&mut self) -> &mut Vec<u32> {
+        &mut self.chars
     }
     fn get_bigrams(&mut self) -> &mut Vec<u32> {
         &mut self.bigrams
