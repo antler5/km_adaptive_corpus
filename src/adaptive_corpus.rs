@@ -8,14 +8,16 @@
 //!
 //! # Examples
 //!
-//! ```
+//! ```no_run
 //! use std::fs;
 //! use kc::Corpus;
 //! use km_adaptive_corpus::AdaptiveCorpus;
 //!
 //! let b = fs::read("./corpora/shai-iweb.corpus").unwrap();
 //! let mut corpus: Corpus = rmp_serde::from_slice(&b).unwrap();
-//! corpus.adapt_ngrams(['h', 'e'], ['h', '†']);
+//! <Corpus as AdaptiveCorpus<[char; 1]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
+//! <Corpus as AdaptiveCorpus<[char; 2]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
+//! <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
 //! ```
 
 use crate::CorpusExt;
