@@ -24,12 +24,16 @@ use crate::CorpusExt;
 
 pub mod bigrams;
 pub mod monograms;
+pub mod pentagrams;
+pub mod quadgrams;
 pub mod trigrams;
 
 #[cfg(test)]
 mod tests;
 
 // # Generics
+
+// XXX: There being two uses of "old" is confusing.
 
 pub struct ExpansionStruct<O, N> {
     old: O,

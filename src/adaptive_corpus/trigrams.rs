@@ -90,10 +90,10 @@ impl Expand<[char; 3], [char; 4], [char; 5]> for [char; 3] {
 /// ```
 impl AdaptiveCorpus<[char; 3]> for Corpus {
     fn adapt_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
-        // self.adapt_boundary_ngrams(old, new);
-        <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_boundary_ngrams(self, old, new);
         // self.adapt_interior_ngrams(old, new);
         <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_interior_ngrams(self, old, new);
+        // self.adapt_boundary_ngrams(old, new);
+        <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_boundary_ngrams(self, old, new);
     }
 
     fn adapt_boundary_ngrams(&mut self, old: [char; 2], new: [char; 2]) {

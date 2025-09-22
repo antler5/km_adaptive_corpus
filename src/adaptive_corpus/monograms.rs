@@ -80,8 +80,6 @@ impl AdaptiveCorpus<[char; 1]> for Corpus {
     fn adapt_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
         // self.adapt_boundary_ngrams(old, new);
         <Corpus as AdaptiveCorpus<[char; 1]>>::adapt_boundary_ngrams(self, old, new);
-        // // self.adapt_interior_ngrams(old, new);
-        // <Corpus as AdaptiveCorpus<[char; 1]>>::adapt_interior_ngrams(self, old, new);
     }
 
     fn adapt_boundary_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
