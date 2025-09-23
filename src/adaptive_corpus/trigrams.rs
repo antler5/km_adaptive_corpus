@@ -62,19 +62,31 @@ impl Expand<[char; 3], [char; 4], [char; 5]> for [char; 3] {
     ) -> Expansions<[char; 3], [char; 4], [char; 5]> {
         let (mut left, mut right, mut both) = (None, None, None);
 
+        let mut tg = self.clone();
+        if tg[0] == old[0] && tg[1] == old[1] && tg[2] == old[0] {
+            // heh
+            tg = [new[0], new[1], new[0]];
+        } else if tg[0] == old[0] && tg[1] == old[1] {
+            // he*
+            tg = [new[0], new[1], tg[2]];
+        } else if tg[1] == old[0] && tg[2] == old[1] {
+            // *he
+            tg = [tg[0], new[0], new[1]];
+        }
+
         // If the trigram starts with the old bigram suffix, left
         if self[0] == old[1] {
             left = Some(ExpansionStruct::new(
-                [old[0], self[0], self[1], self[2]],
-                [new[1], self[1], self[2]],
+                [old[0], tg[0], tg[1], tg[2]],
+                [new[1], tg[1], tg[2]],
             ));
         }
 
         // If the trigram ends with the old bigram prefix, right
         if self[2] == old[0] {
             right = Some(ExpansionStruct::new(
-                [self[0], self[1], self[2], old[1]],
-                [self[0], self[1], new[0]],
+                [tg[0], tg[1], tg[2], old[1]],
+                [tg[0], tg[1], new[0]],
             ));
 
             // If both, both

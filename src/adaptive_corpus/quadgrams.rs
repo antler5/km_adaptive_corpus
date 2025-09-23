@@ -53,19 +53,37 @@ impl Expand<[char; 4], [char; 5], [char; 6]> for [char; 4] {
     ) -> Expansions<[char; 4], [char; 5], [char; 6]> {
         let (mut left, mut right, mut both) = (None, None, None);
 
+        let mut qg = self.clone();
+        if qg[0] == old[0] && qg[1] == old[1] && qg[2] == old[0] && qg[3] == old[1] {
+            // hehe
+            qg = [new[0], new[1], new[0], new[1]];
+        } else if qg[0] == old[1] && qg[1] == old[0] && qg[2] == old[1] && qg[3] == old[0] {
+            // eheh
+            qg = [new[1], new[0], new[1], new[0]];
+        } else if qg[0] == old[0] && qg[1] == old[1] {
+            // he**
+            qg = [new[0], new[1], qg[2], qg[3]];
+        } else if qg[1] == old[0] && qg[2] == old[1] {
+            // *he*
+            qg = [qg[0], new[0], new[1], qg[3]];
+        } else if qg[2] == old[0] && qg[3] == old[1] {
+            // **he
+            qg = [qg[0], qg[1], new[0], new[1]];
+        }
+
         // If the quadgram starts with the old bigram suffix, left
         if self[0] == old[1] {
             left = Some(ExpansionStruct::new(
-                [old[0], self[0], self[1], self[2], self[3]],
-                [new[1], self[1], self[2], self[3]],
+                [old[0], qg[0], qg[1], qg[2], qg[3]],
+                [new[1], qg[1], qg[2], qg[3]],
             ));
         }
 
         // If the quadgram ends with the old bigram prefix, right
         if self[3] == old[0] {
             right = Some(ExpansionStruct::new(
-                [self[0], self[1], self[2], self[3], old[1]],
-                [self[0], self[1], self[2], new[0]],
+                [qg[0], qg[1], qg[2], qg[3], old[1]],
+                [qg[0], qg[1], qg[2], new[0]],
             ));
 
             // If both, both

@@ -46,19 +46,43 @@ impl Expand<[char; 5], [char; 6], [char; 7]> for [char; 5] {
     ) -> Expansions<[char; 5], [char; 6], [char; 7]> {
         let (mut left, mut right, mut both) = (None, None, None);
 
+        let mut pg = self.clone();
+        if pg[0] == old[0] && pg[1] == old[1] && pg[2] == old[0] && pg[3] == old[1] {
+            // hehe*
+            pg = [new[0], new[1], new[0], new[1], pg[4]];
+        } else if pg[0] == old[0] && pg[1] == old[1] && pg[3] == old[0] && pg[4] == old[1] {
+            // he*he
+            pg = [new[0], new[1], pg[2], new[0], new[1]];
+        } else if pg[1] == old[0] && pg[2] == old[1] && pg[3] == old[0] && pg[4] == old[1] {
+            // *hehe
+            pg = [pg[0], new[0], new[1], new[0], new[1]];
+        } else if pg[0] == old[0] && pg[1] == old[1] {
+            // he***
+            pg = [new[0], new[1], pg[2], pg[3], pg[4]];
+        } else if pg[1] == old[0] && pg[2] == old[1] {
+            // *he**
+            pg = [pg[0], new[0], new[1], pg[3], pg[4]];
+        } else if pg[2] == old[0] && pg[3] == old[1] {
+            // **he*
+            pg = [pg[0], pg[1], new[0], new[1], pg[4]];
+        } else if pg[3] == old[0] && pg[4] == old[1] {
+            // ***he
+            pg = [pg[0], pg[1], pg[2], new[0], new[1]];
+        }
+
         // If the pentagram starts with the old bigram suffix, left
-        if self[0] == old[1] {
+        if pg[0] == old[1] {
             left = Some(ExpansionStruct::new(
                 [0 as char; 6],
-                [new[1], self[1], self[2], self[3], self[4]],
+                [new[1], pg[1], pg[2], pg[3], pg[4]],
             ));
         }
 
         // If the pentagram ends with the old bigram prefix, right
-        if self[3] == old[0] {
+        if pg[3] == old[0] {
             right = Some(ExpansionStruct::new(
                 [0 as char; 6],
-                [self[0], self[1], self[2], self[3], new[0]],
+                [pg[0], pg[1], pg[2], pg[3], new[0]],
             ));
 
             // If both, both
