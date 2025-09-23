@@ -7,8 +7,8 @@ use crate::adaptive_corpus::*;
 
 use kc::Corpus;
 
+use tracing::debug;
 use tracing::instrument;
-use tracing::{debug, event, trace_span, Level};
 
 impl GetCount<[char; 4], [char; 3]> for ExpansionStruct<[char; 4], [char; 3]> {
     /// Count quadgrams.
@@ -110,7 +110,6 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
         let num_trigrams = self.get_trigrams().len();
         for i in 0..num_trigrams {
             let tg = self.uncorpus_trigram(i);
-
             let mut exps = [tg[0], tg[1], tg[2]].expand(old, new);
 
             macro_rules! sum {
@@ -155,10 +154,12 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
             let tg = self.uncorpus_trigram(i);
             if tg[0] == old[0] && tg[1] == old[1] {
                 // self.adapt_interior_ngram(i, &tg[..], &[new[0], new[1], tg[2]]);
+                #[rustfmt::skip]
                 <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_interior_ngram(self, i, &tg[..], &[new[0], new[1], tg[2]]);
             }
             if tg[1] == old[0] && tg[2] == old[1] {
                 // self.adapt_interior_ngram(i, &tg[..], &[tg[0], new[0], new[1]]);
+                #[rustfmt::skip]
                 <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_interior_ngram(self, i, &tg[..], &[tg[0], new[0], new[1]]);
             }
         }

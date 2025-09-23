@@ -31,22 +31,17 @@ pub mod trigrams;
 #[cfg(test)]
 mod tests;
 
+#[rustfmt::skip]
 static DEBUG_TRIGRAMS: &'static [[char; 3]] = &[
-    ['e', 'h', 'e'],
-    ['e', 'h', 'r'],
     ['e', 'h', '†'],
-    ['r', 'h', 'e'],
-    ['r', 'h', 'r'],
-    ['r', 'h', '†'],
-    ['†', 'h', 'e'],
-    ['†', 'h', 'r'],
+    ['e', 'h', 'e'],
     ['†', 'h', '†'],
 ];
 
+#[rustfmt::skip]
 static DEBUG_QUADGRAMS: &'static [[char; 4]] = &[
-    ['h', 'e', 'h', 'e'],
-    ['e', 'h', 'e', 'r'],
-    ['†', 'h', 'e', 'r'],
+    ['h', 'e', 'h', '†'],
+    ['h', '†', 'h', '†'],
 ];
 
 // # Generics
@@ -61,15 +56,15 @@ pub struct ExpansionStruct<O, N> {
 
 impl<O, N> std::fmt::Debug for ExpansionStruct<O, N>
 where
-  O: std::fmt::Debug,
-  N: std::fmt::Debug,
+    O: std::fmt::Debug,
+    N: std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ExpansionStruct")
-         .field("old", &self.old)
-         .field("new", &self.new)
-         .field("count", &self.count)
-         .finish()
+            .field("old", &self.old)
+            .field("new", &self.new)
+            .field("count", &self.count)
+            .finish()
     }
 }
 

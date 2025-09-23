@@ -86,7 +86,6 @@ impl AdaptiveCorpus<[char; 1]> for Corpus {
         let num_chars = self.get_chars().len();
         for i in 0..num_chars {
             let c = self.uncorpus_unigram(i);
-
             let mut exps = [c].expand(old, new);
 
             macro_rules! sum {

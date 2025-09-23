@@ -85,7 +85,6 @@ impl AdaptiveCorpus<[char; 5]> for Corpus {
         let num_pentagrams = self.get_pentagrams().len();
         for i in 0..num_pentagrams {
             let pg = self.uncorpus_pentagram(i);
-
             let mut exps = [pg[0], pg[1], pg[2], pg[3], pg[4]].expand(old, new);
 
             macro_rules! sum {

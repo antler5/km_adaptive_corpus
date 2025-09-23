@@ -6,8 +6,8 @@ use crate::CorpusExt;
 use crate::adaptive_corpus::*;
 use kc::Corpus;
 
+use tracing::debug;
 use tracing::instrument;
-use tracing::{debug, event, trace_span, Level};
 
 impl GetCount<[char; 5], [char; 4]> for ExpansionStruct<[char; 5], [char; 4]> {
     /// Count pentagrams.
@@ -102,7 +102,6 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
         let num_quadgrams = self.get_quadgrams().len();
         for i in 0..num_quadgrams {
             let qg = self.uncorpus_quadgram(i);
-
             let mut exps = [qg[0], qg[1], qg[2], qg[3]].expand(old, new);
 
             macro_rules! sum {
@@ -123,10 +122,14 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
             let sum: u32 = sum!(exps.left, exps.right, exps.both);
 
             if DEBUG_QUADGRAMS.contains(&[qg[0], qg[1], qg[2], qg[3]]) {
-                debug!(?exps, sum, freq_pre = self.quadgrams[i]);
+                debug!(?exps, sum, ?qg, freq_pre = self.quadgrams[i]);
             }
 
             self.quadgrams[i] -= sum;
+
+            if DEBUG_QUADGRAMS.contains(&[qg[0], qg[1], qg[2], qg[3]]) {
+                debug!(?exps, sum, ?qg, freq_post = self.quadgrams[i]);
+            }
         }
     }
 
@@ -137,36 +140,20 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
 
             // XXX: Probably not correct for replacing repeats
             if qg[0] == old[0] && qg[1] == old[1] && qg[2] == old[0] && qg[3] == old[1] {
-                <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_interior_ngram(
-                    self,
-                    i,
-                    &qg[..],
-                    &[new[0], new[1], new[0], new[1]],
-                );
+                #[rustfmt::skip]
+                <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_interior_ngram(self, i, &qg[..], &[new[0], new[1], new[0], new[1]]);
             } else {
                 if qg[0] == old[0] && qg[1] == old[1] {
-                    <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_interior_ngram(
-                        self,
-                        i,
-                        &qg[..],
-                        &[new[0], new[1], qg[2], qg[3]],
-                    );
+                    #[rustfmt::skip]
+                    <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_interior_ngram(self, i, &qg[..], &[new[0], new[1], qg[2], qg[3]]);
                 }
                 if qg[1] == old[0] && qg[2] == old[1] {
-                    <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_interior_ngram(
-                        self,
-                        i,
-                        &qg[..],
-                        &[qg[0], new[0], new[1], qg[3]],
-                    );
+                    #[rustfmt::skip]
+                    <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_interior_ngram(self, i, &qg[..], &[qg[0], new[0], new[1], qg[3]]);
                 }
                 if qg[2] == old[0] && qg[3] == old[1] {
-                    <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_interior_ngram(
-                        self,
-                        i,
-                        &qg[..],
-                        &[qg[0], qg[1], new[0], new[1]],
-                    );
+                    #[rustfmt::skip]
+                    <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_interior_ngram(self, i, &qg[..], &[qg[0], qg[1], new[0], new[1]]);
                 }
             }
         }
@@ -185,8 +172,13 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
         if DEBUG_QUADGRAMS.contains(&[old_ng[0], old_ng[1], old_ng[2], old_ng[3]])
             || DEBUG_QUADGRAMS.contains(&[new_ng[0], new_ng[1], new_ng[2], new_ng[3]])
         {
-            debug!(?new_ng, freq_pre = freq);
+            debug!(?new_ng, freq_pre = self.get_quadgrams()[new_idx]);
         }
         self.get_quadgrams()[new_idx] += freq;
+        if DEBUG_QUADGRAMS.contains(&[old_ng[0], old_ng[1], old_ng[2], old_ng[3]])
+            || DEBUG_QUADGRAMS.contains(&[new_ng[0], new_ng[1], new_ng[2], new_ng[3]])
+        {
+            debug!(?new_ng, freq_post = self.get_quadgrams()[new_idx]);
+        }
     }
 }

@@ -94,7 +94,6 @@ impl AdaptiveCorpus<[char; 2]> for Corpus {
         let num_bigrams = self.get_bigrams().len();
         for i in 0..num_bigrams {
             let bg = self.uncorpus_bigram(i);
-
             let mut exps = [bg[0], bg[1]].expand(old, new);
 
             macro_rules! sum {
@@ -124,6 +123,7 @@ impl AdaptiveCorpus<[char; 2]> for Corpus {
             let bg = self.uncorpus_bigram(i);
             if bg[0] == old[0] && bg[1] == old[1] {
                 // self.adapt_interior_ngram(i, &bg[..], &[new[0], new[1]]);
+                #[rustfmt::skip]
                 <Corpus as AdaptiveCorpus<[char; 2]>>::adapt_interior_ngram(self, i, &bg[..], &[new[0], new[1]]);
             }
         }
