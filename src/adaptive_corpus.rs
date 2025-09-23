@@ -31,6 +31,24 @@ pub mod trigrams;
 #[cfg(test)]
 mod tests;
 
+static DEBUG_TRIGRAMS: &'static [[char; 3]] = &[
+    ['e', 'h', 'e'],
+    ['e', 'h', 'r'],
+    ['e', 'h', '†'],
+    ['r', 'h', 'e'],
+    ['r', 'h', 'r'],
+    ['r', 'h', '†'],
+    ['†', 'h', 'e'],
+    ['†', 'h', 'r'],
+    ['†', 'h', '†'],
+];
+
+static DEBUG_QUADGRAMS: &'static [[char; 4]] = &[
+    ['h', 'e', 'h', 'e'],
+    ['e', 'h', 'e', 'r'],
+    ['†', 'h', 'e', 'r'],
+];
+
 // # Generics
 
 // XXX: There being two uses of "old" is confusing.
@@ -39,6 +57,20 @@ pub struct ExpansionStruct<O, N> {
     old: O,
     new: N,
     count: Option<u32>,
+}
+
+impl<O, N> std::fmt::Debug for ExpansionStruct<O, N>
+where
+  O: std::fmt::Debug,
+  N: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ExpansionStruct")
+         .field("old", &self.old)
+         .field("new", &self.new)
+         .field("count", &self.count)
+         .finish()
+    }
 }
 
 impl<O, N> ExpansionStruct<O, N> {
@@ -59,6 +91,7 @@ impl<O, N> ExpansionStruct<O, N> {
     }
 }
 
+#[derive(Debug)]
 pub struct Expansions<N, S, L> {
     left: Option<ExpansionStruct<S, N>>,
     right: Option<ExpansionStruct<S, N>>,
@@ -76,7 +109,8 @@ pub trait GetCount<O, N> {
 pub trait AdaptiveCorpusBase<N>: CorpusExt {
     fn adapt_boundary_ngram<O>(&mut self, exp: &mut Option<ExpansionStruct<O, N>>, bcount: u32)
     where
-        ExpansionStruct<O, N>: GetCount<O, N>;
+        ExpansionStruct<O, N>: GetCount<O, N>,
+        O: std::fmt::Debug;
 }
 
 pub trait AdaptiveCorpus<N>: AdaptiveCorpusBase<N> {

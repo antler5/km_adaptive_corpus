@@ -4,7 +4,11 @@
 
 use crate::CorpusExt;
 use crate::adaptive_corpus::*;
+
 use kc::Corpus;
+
+use tracing::instrument;
+use tracing::{debug, event, trace_span, Level};
 
 impl GetCount<[char; 4], [char; 3]> for ExpansionStruct<[char; 4], [char; 3]> {
     /// Count quadgrams.
@@ -23,17 +27,22 @@ impl GetCount<[char; 5], [char; 3]> for ExpansionStruct<[char; 5], [char; 3]> {
 }
 
 impl<U: CorpusExt> AdaptiveCorpusBase<[char; 3]> for U {
+    #[instrument(level = "trace", skip(self))]
     fn adapt_boundary_ngram<O>(
         &mut self,
         exp: &mut Option<ExpansionStruct<O, [char; 3]>>,
         bcount: u32,
     ) where
         ExpansionStruct<O, [char; 3]>: GetCount<O, [char; 3]>,
+        O: std::fmt::Debug,
     {
         if let Some(exp) = exp {
             exp.set_count(exp.get_count(self) - bcount);
 
             let idx = self.corpus_trigram(&exp.new);
+            if DEBUG_TRIGRAMS.contains(&exp.new) {
+                debug!(?exp, freq_pre = self.get_trigrams()[idx], bcount);
+            }
             self.get_trigrams()[idx] += exp.read_count();
 
             // Skipgrams
@@ -96,6 +105,7 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
         <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_boundary_ngrams(self, old, new);
     }
 
+    #[instrument(level = "trace", skip(self))]
     fn adapt_boundary_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
         let num_trigrams = self.get_trigrams().len();
         for i in 0..num_trigrams {
@@ -120,7 +130,15 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
 
             let sum: u32 = sum!(exps.left, exps.right, exps.both);
 
+            if DEBUG_TRIGRAMS.contains(&[tg[0], tg[1], tg[2]]) {
+                debug!(?exps, ?tg, sum, freq_pre = self.trigrams[i]);
+            }
+
             self.trigrams[i] -= sum;
+
+            if DEBUG_TRIGRAMS.contains(&[tg[0], tg[1], tg[2]]) {
+                debug!(?exps, ?tg, sum, freq_post = self.trigrams[i]);
+            }
 
             // Skipgrams
             // XXX: Half-assed, assumes all corpus chars were valid.
@@ -130,6 +148,7 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
         }
     }
 
+    #[instrument(level = "trace", skip(self))]
     fn adapt_interior_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
         let num_trigrams = self.get_trigrams().len();
         for i in 0..num_trigrams {
@@ -145,11 +164,23 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
         }
     }
 
+    #[instrument(level = "trace", skip(self))]
     fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char]) {
         let freq = self.get_trigrams()[old_idx];
+
+        if DEBUG_TRIGRAMS.contains(&[old_ng[0], old_ng[1], old_ng[2]])
+            || DEBUG_TRIGRAMS.contains(&[new_ng[0], new_ng[1], new_ng[2]])
+        {
+            debug!(?old_ng, freq_pre = freq);
+        }
         self.get_trigrams()[old_idx] -= freq;
 
         let new_idx = self.corpus_trigram(&[new_ng[0], new_ng[1], new_ng[2]]);
+        if DEBUG_TRIGRAMS.contains(&[old_ng[0], old_ng[1], old_ng[2]])
+            || DEBUG_TRIGRAMS.contains(&[new_ng[0], new_ng[1], new_ng[2]])
+        {
+            debug!(?new_ng, freq_pre = self.get_trigrams()[new_idx]);
+        }
         self.get_trigrams()[new_idx] += freq;
 
         // Skipgrams

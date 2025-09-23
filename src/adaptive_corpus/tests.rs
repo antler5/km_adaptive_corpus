@@ -7,6 +7,8 @@ use std::fs;
 
 use kc::Corpus;
 
+use test_log::test;
+
 fn verify_corpus_si_pre(corpus: Corpus) {
     // Monograms
     assert_eq!(corpus.count_char('e'), 50497522);

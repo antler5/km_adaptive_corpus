@@ -8,6 +8,12 @@ version = "0.1.0"
 edition = "2024"
 license = "GPL-3.0-only"
 
+# [profile.test]
+# overflow-checks = false
+
+[dev-dependencies]
+test-log = { version = "0.2.18", features = ["trace"] }
+
 [dependencies]
 km = { package = "keymeow", git = "https://github.com/antler5/keymeow", branch = "keymui" }
 kc = { package = "keycat", path = "../keycat", features = ["serde"] }
@@ -16,3 +22,5 @@ serde_json = "1.0.104"
 serde = { version = "1.0.188", features = ["serde_derive"] }
 rmp-serde = "1.1.2"
 minreq = {version = "2.11.2", features = ["https-rustls", "json-using-serde"] }
+tracing-subscriber = "0.3.20"
+tracing = "0.1.41"

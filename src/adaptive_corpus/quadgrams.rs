@@ -6,6 +6,9 @@ use crate::CorpusExt;
 use crate::adaptive_corpus::*;
 use kc::Corpus;
 
+use tracing::instrument;
+use tracing::{debug, event, trace_span, Level};
+
 impl GetCount<[char; 5], [char; 4]> for ExpansionStruct<[char; 5], [char; 4]> {
     /// Count pentagrams.
     fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32 {
@@ -28,12 +31,16 @@ impl<U: CorpusExt> AdaptiveCorpusBase<[char; 4]> for U {
         bcount: u32,
     ) where
         ExpansionStruct<O, [char; 4]>: GetCount<O, [char; 4]>,
+        O: std::fmt::Debug,
     {
         // XXX: if let Some(exp) = exp && exp.old.len() < 6 {
         if let Some(exp) = exp {
             exp.set_count(exp.get_count(self) - bcount);
 
             let idx = self.corpus_quadgram(&exp.new);
+            if DEBUG_QUADGRAMS.contains(&exp.new) {
+                debug!(?exp, freq_pre = self.get_quadgrams()[idx], bcount);
+            }
             self.get_quadgrams()[idx] += exp.read_count();
         }
     }
@@ -115,6 +122,10 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
 
             let sum: u32 = sum!(exps.left, exps.right, exps.both);
 
+            if DEBUG_QUADGRAMS.contains(&[qg[0], qg[1], qg[2], qg[3]]) {
+                debug!(?exps, sum, freq_pre = self.quadgrams[i]);
+            }
+
             self.quadgrams[i] -= sum;
         }
     }
@@ -163,9 +174,19 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
 
     fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char]) {
         let freq = self.get_quadgrams()[old_idx];
+        if DEBUG_QUADGRAMS.contains(&[old_ng[0], old_ng[1], old_ng[2], old_ng[3]])
+            || DEBUG_QUADGRAMS.contains(&[new_ng[0], new_ng[1], new_ng[2], new_ng[3]])
+        {
+            debug!(?old_ng, freq_pre = freq);
+        }
         self.get_quadgrams()[old_idx] -= freq;
 
         let new_idx = self.corpus_quadgram(&[new_ng[0], new_ng[1], new_ng[2], new_ng[3]]);
+        if DEBUG_QUADGRAMS.contains(&[old_ng[0], old_ng[1], old_ng[2], old_ng[3]])
+            || DEBUG_QUADGRAMS.contains(&[new_ng[0], new_ng[1], new_ng[2], new_ng[3]])
+        {
+            debug!(?new_ng, freq_pre = freq);
+        }
         self.get_quadgrams()[new_idx] += freq;
     }
 }
