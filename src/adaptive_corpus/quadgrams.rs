@@ -7,7 +7,6 @@ use crate::adaptive_corpus::*;
 use kc::Corpus;
 
 use tracing::debug;
-use tracing::instrument;
 
 impl GetCount<[char; 5], [char; 4]> for ExpansionStruct<[char; 5], [char; 4]> {
     /// Count pentagrams.
