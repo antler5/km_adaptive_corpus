@@ -122,10 +122,17 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
                 }
             }
 
-            self.adapt_boundary_ngram(&mut exps.both, 0);
+            // TODO: Change method signature to unwrap the Option here
+            if exps.both.is_some() {
+                self.adapt_boundary_ngram(&mut exps.both, 0)
+            };
             let bcount = sum!(exps.both);
-            self.adapt_boundary_ngram(&mut exps.left, bcount);
-            self.adapt_boundary_ngram(&mut exps.right, bcount);
+            if exps.left.is_some() {
+                self.adapt_boundary_ngram(&mut exps.left, bcount)
+            };
+            if exps.right.is_some() {
+                self.adapt_boundary_ngram(&mut exps.right, bcount)
+            };
 
             let sum: u32 = sum!(exps.left, exps.right, exps.both);
 
