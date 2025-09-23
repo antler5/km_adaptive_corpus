@@ -32,14 +32,14 @@ pub mod trigrams;
 mod tests;
 
 #[rustfmt::skip]
-static DEBUG_TRIGRAMS: &'static [[char; 3]] = &[
+static DEBUG_TRIGRAMS: &[[char; 3]] = &[
     ['e', 'h', '†'],
     ['e', 'h', 'e'],
     ['†', 'h', '†'],
 ];
 
 #[rustfmt::skip]
-static DEBUG_QUADGRAMS: &'static [[char; 4]] = &[
+static DEBUG_QUADGRAMS: &[[char; 4]] = &[
     ['h', 'e', 'h', '†'],
     ['h', '†', 'h', '†'],
 ];
