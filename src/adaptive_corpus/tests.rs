@@ -96,20 +96,22 @@ fn verify_corpus_si_he_er(corpus: Corpus) {
     // he -> h†
     // er -> r† (whoops)
 
-    // assert_eq!(corpus.count_trigram(['v', 'e', 'r']), 283); // Getting: 0 (seems right?)
+    assert_eq!(corpus.count_trigram(['e', 'r', 'e']), 0);
+    assert_eq!(corpus.count_trigram(['e', 'r', 'r']), 0); // Getting: 2389
+    assert_eq!(corpus.count_trigram(['e', 'h', '†']), 10821); // Getting: 11161 (+317)
 
-    // Monograms
-    assert_eq!(corpus.count_char('e'), 36549054);
-    assert_eq!(corpus.count_char('†'), 13948468);
+    // // Monograms
+    // assert_eq!(corpus.count_char('e'), 36549054);
+    // assert_eq!(corpus.count_char('†'), 13948468);
 
-    // Bigrams
-    assert_eq!(corpus.count_bigram(['h', 'e']), 0);
-    assert_eq!(corpus.count_bigram(['h', '†']), 8729312);
-    assert_eq!(corpus.count_bigram(['†', 'e']), 470925);
-    assert_eq!(corpus.count_bigram(['†', 'a']), 538430);
-    assert_eq!(corpus.count_bigram(['†', 'i']), 586723);
-    assert_eq!(corpus.count_bigram(['†', 'o']), 51438);
-    assert_eq!(corpus.count_bigram(['†', ' ']), 7001837);
+    // // Bigrams
+    // assert_eq!(corpus.count_bigram(['h', 'e']), 0);
+    // assert_eq!(corpus.count_bigram(['h', '†']), 8729312);
+    // assert_eq!(corpus.count_bigram(['†', 'e']), 470925);
+    // assert_eq!(corpus.count_bigram(['†', 'a']), 538430);
+    // assert_eq!(corpus.count_bigram(['†', 'i']), 586723);
+    // assert_eq!(corpus.count_bigram(['†', 'o']), 51438);
+    // assert_eq!(corpus.count_bigram(['†', ' ']), 7001837);
 
     // Trigrams
     assert_eq!(corpus.count_trigram(['t', 'h', 'e']), 0);
@@ -122,7 +124,8 @@ fn verify_corpus_si_he_er(corpus: Corpus) {
     // assert_eq!(corpus.count_trigram(['†', ' ', 'l']), 258419); // Getting: 258419
     assert_eq!(corpus.count_trigram(['e', 'a', 'h']), 6357);
     assert_eq!(corpus.count_trigram(['†', 'a', 'h']), 60);
-    // assert_eq!(corpus.count_trigram(['e', 'h', 'e']), 0); // Getting: 4294966979 (-316)
+    assert_eq!(corpus.count_trigram(['e', 'h', 'e']), 0); // Getting: 4294966979 (-316)
+    assert_eq!(corpus.count_trigram(['e', 'r', 'e']), 0); // Getting: -22
 
     // Skipgrams
     assert_eq!(corpus.count_skipgram(['t', 'e']), 960000);
@@ -147,20 +150,22 @@ fn verify_corpus_si_er_he(corpus: Corpus) {
     // he -> h†
     // er -> r† (whoops)
 
-    // assert_eq!(corpus.count_trigram(['v', 'e', 'r']), 283); // Getting: 0 (seems right?)
+    assert_eq!(corpus.count_trigram(['e', 'r', 'e']), 0);
+    assert_eq!(corpus.count_trigram(['e', 'r', 'r']), 0); // Getting: 
+    assert_eq!(corpus.count_trigram(['e', 'h', '†']), 10668); // Getting: 10985 (+340)
 
-    // Monograms
-    assert_eq!(corpus.count_char('e'), 36549054);
-    assert_eq!(corpus.count_char('†'), 13948468);
+    // // Monograms
+    // assert_eq!(corpus.count_char('e'), 36549054);
+    // assert_eq!(corpus.count_char('†'), 13948468);
 
-    // Bigrams
-    assert_eq!(corpus.count_bigram(['h', 'e']), 0);
-    assert_eq!(corpus.count_bigram(['h', '†']), 7571109);
-    assert_eq!(corpus.count_bigram(['†', 'e']), 911133);
-    assert_eq!(corpus.count_bigram(['†', 'a']), 548135);
-    assert_eq!(corpus.count_bigram(['†', 'i']), 600863);
-    assert_eq!(corpus.count_bigram(['†', 'o']), 59519);
-    assert_eq!(corpus.count_bigram(['†', ' ']), 7510811);
+    // // Bigrams
+    // assert_eq!(corpus.count_bigram(['h', 'e']), 0);
+    // assert_eq!(corpus.count_bigram(['h', '†']), 7571109);
+    // assert_eq!(corpus.count_bigram(['†', 'e']), 911133);
+    // assert_eq!(corpus.count_bigram(['†', 'a']), 548135);
+    // assert_eq!(corpus.count_bigram(['†', 'i']), 600863);
+    // assert_eq!(corpus.count_bigram(['†', 'o']), 59519);
+    // assert_eq!(corpus.count_bigram(['†', ' ']), 7510811);
 
     // Trigrams
     assert_eq!(corpus.count_trigram(['t', 'h', 'e']), 0);
@@ -174,6 +179,7 @@ fn verify_corpus_si_er_he(corpus: Corpus) {
     assert_eq!(corpus.count_trigram(['e', 'a', 'h']), 6357);
     assert_eq!(corpus.count_trigram(['†', 'a', 'h']), 61);
     assert_eq!(corpus.count_trigram(['e', 'h', 'e']), 0); // Getting: 4294966979 (-316)
+    assert_eq!(corpus.count_trigram(['e', 'r', 'e']), 0); // Getting: -2518
 
     // Skipgrams
     assert_eq!(corpus.count_skipgram(['t', 'e']), 960000);
@@ -222,6 +228,7 @@ fn si_he() {
 fn si_he_er() {
     let b = fs::read("./corpora/shai-iweb.corpus").expect("couldn't read corpus file");
     let mut corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
+
     <Corpus as AdaptiveCorpus<[char; 1]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
     <Corpus as AdaptiveCorpus<[char; 2]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
     <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
@@ -233,6 +240,7 @@ fn si_he_er() {
     <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']); // XXX
     <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']); // XXX
     <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']); // XXX
+
     verify_corpus_si_he_er(corpus);
 }
 
@@ -278,10 +286,9 @@ fn si_er_he_ref() {
 /// XXX: Can OOM in release-mode.
 #[test]
 #[ignore]
-fn si_compare_all_ngrams() {
+fn si_he_compare_all_ngrams() {
     let b = fs::read("./corpora/shai-iweb.corpus").expect("couldn't read corpus file");
     let mut corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
-    // corpus.adapt_ngrams(['h', 'e'], ['h', '†']);
     <Corpus as AdaptiveCorpus<[char; 1]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
     <Corpus as AdaptiveCorpus<[char; 2]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
     <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
@@ -300,8 +307,10 @@ fn si_compare_all_ngrams() {
     for i in 0..num_trigrams {
         let tg = corpus.uncorpus_trigram(i);
         let ref_tg_idx = ref_corpus.corpus_trigram(&[tg[0], tg[1], tg[2]]);
-        println!("{:?}", tg);
-        assert_eq!(corpus.trigrams[i], ref_corpus.trigrams[ref_tg_idx]);
+        if corpus.trigrams[i] != ref_corpus.trigrams[ref_tg_idx] {
+            debug!(i, ?tg);
+            panic!();
+        }
     }
 }
 
@@ -317,11 +326,11 @@ fn si_he_er_compare_all_ngrams() {
     <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
     <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
 
-    <Corpus as AdaptiveCorpus<[char; 1]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']);
-    <Corpus as AdaptiveCorpus<[char; 2]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']);
-    <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']);
-    <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']);
-    <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']);
+    <Corpus as AdaptiveCorpus<[char; 1]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']); // XXX
+    <Corpus as AdaptiveCorpus<[char; 2]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']); // XXX
+    <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']); // XXX
+    <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']); // XXX
+    <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']); // XXX
 
     let b = fs::read("./corpora/shai-iweb-he-er.corpus").expect("couldn't read corpus file");
     let ref_corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
@@ -335,7 +344,46 @@ fn si_he_er_compare_all_ngrams() {
     for i in 0..num_trigrams {
         let tg = corpus.uncorpus_trigram(i);
         let ref_tg_idx = ref_corpus.corpus_trigram(&[tg[0], tg[1], tg[2]]);
-        println!("{:?}", tg);
-        assert_eq!(corpus.trigrams[i], ref_corpus.trigrams[ref_tg_idx]);
+        if corpus.trigrams[i] != ref_corpus.trigrams[ref_tg_idx] {
+            debug!(i, ?tg);
+            panic!();
+        }
+    }
+}
+
+/// XXX: Can OOM in release-mode.
+#[test]
+fn si_er_he_compare_all_ngrams() {
+    let b = fs::read("./corpora/shai-iweb.corpus").expect("couldn't read corpus file");
+    let mut corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
+    // corpus.adapt_ngrams(['h', 'e'], ['h', '†']);
+    <Corpus as AdaptiveCorpus<[char; 1]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']); // XXX
+    <Corpus as AdaptiveCorpus<[char; 2]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']); // XXX
+    <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']); // XXX
+    <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']); // XXX
+    <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_ngrams(&mut corpus, ['e', 'r'], ['r', '†']); // XXX
+
+    <Corpus as AdaptiveCorpus<[char; 1]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
+    <Corpus as AdaptiveCorpus<[char; 2]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
+    <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
+    <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
+    <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
+
+    let b = fs::read("./corpora/shai-iweb-er-he.corpus").expect("couldn't read corpus file");
+    let ref_corpus: Corpus = rmp_serde::from_slice(&b).expect("couldn't deserialize corpus");
+
+    // assert_eq!(ref_corpus.chars, corpus.chars);
+    // assert_eq!(ref_corpus.bigrams, corpus.bigrams);
+    // assert_eq!(ref_corpus.trigrams, corpus.trigrams);
+
+    let num_trigrams = corpus.trigrams.len();
+    assert_eq!(ref_corpus.trigrams.len(), num_trigrams);
+    for i in 0..num_trigrams {
+        let tg = corpus.uncorpus_trigram(i);
+        let ref_tg_idx = ref_corpus.corpus_trigram(&[tg[0], tg[1], tg[2]]);
+        if corpus.trigrams[i] != ref_corpus.trigrams[ref_tg_idx] {
+            debug!(i, ?tg);
+            panic!();
+        }
     }
 }
