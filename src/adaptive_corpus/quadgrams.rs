@@ -19,6 +19,18 @@ impl GetCount<[char; 5], [char; 4]> for ExpansionStruct<[char; 5], [char; 4]> {
 impl GetCount<[char; 6], [char; 4]> for ExpansionStruct<[char; 6], [char; 4]> {
     /// "Count" hexagrams.
     fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32 {
+        #[cfg(feature = "synth-large-ngrams")]
+        {
+            let prefix = &[self.old[0], self.old[1], self.old[2], self.old[3], self.old[4]];
+            let suffix = &[self.old[1], self.old[2], self.old[3], self.old[4], self.old[5]];
+            let prefix_idx = corpus.corpus_pentagram(prefix);
+            let suffix_idx = corpus.corpus_pentagram(suffix);
+            let pgs = corpus.get_pentagrams();
+
+            return (pgs[prefix_idx] + pgs[suffix_idx]) / 2
+        }
+
+        #[cfg(not(feature = "synth-large-ngrams"))]
         Default::default()
     }
 }

@@ -6,9 +6,23 @@ use crate::CorpusExt;
 use crate::adaptive_corpus::*;
 use kc::Corpus;
 
+use tracing::instrument;
+
 impl GetCount<[char; 6], [char; 5]> for ExpansionStruct<[char; 6], [char; 5]> {
     /// "Count" hexagrams.
     fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32 {
+        #[cfg(feature = "synth-large-ngrams")]
+        {
+            let prefix = &[self.old[0], self.old[1], self.old[2], self.old[3], self.old[4]];
+            let suffix = &[self.old[1], self.old[2], self.old[3], self.old[4], self.old[5]];
+            let prefix_idx = corpus.corpus_pentagram(prefix);
+            let suffix_idx = corpus.corpus_pentagram(suffix);
+            let pgs = corpus.get_pentagrams();
+
+            return (pgs[prefix_idx] + pgs[suffix_idx]) / 2
+        }
+
+        #[cfg(not(feature = "synth-large-ngrams"))]
         Default::default()
     }
 }
@@ -16,6 +30,18 @@ impl GetCount<[char; 6], [char; 5]> for ExpansionStruct<[char; 6], [char; 5]> {
 impl GetCount<[char; 7], [char; 5]> for ExpansionStruct<[char; 7], [char; 5]> {
     /// "Count" septegrams.
     fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32 {
+        #[cfg(feature = "synth-large-ngrams")]
+        {
+            let prefix = &[self.old[0], self.old[1], self.old[2], self.old[3], self.old[4]];
+            let suffix = &[self.old[2], self.old[3], self.old[4], self.old[5], self.old[6]];
+            let prefix_idx = corpus.corpus_pentagram(prefix);
+            let suffix_idx = corpus.corpus_pentagram(suffix);
+            let sgs = corpus.get_pentagrams();
+
+            (sgs[prefix_idx] + sgs[suffix_idx]) / 2
+        }
+
+        #[cfg(not(feature = "synth-large-ngrams"))]
         Default::default()
     }
 }

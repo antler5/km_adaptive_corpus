@@ -11,6 +11,9 @@ license = "GPL-3.0-only"
 # [profile.test]
 # overflow-checks = false
 
+[features]
+synth-large-ngrams = []
+
 [dev-dependencies]
 test-log = { version = "0.2.18", features = ["trace"] }
 
