@@ -69,9 +69,6 @@ impl Expand<[char; 4], [char; 5], [char; 6]> for [char; 4] {
         if qg[0] == old[0] && qg[1] == old[1] && qg[2] == old[0] && qg[3] == old[1] {
             // hehe
             qg = [new[0], new[1], new[0], new[1]];
-        } else if qg[0] == old[1] && qg[1] == old[0] && qg[2] == old[1] && qg[3] == old[0] {
-            // eheh
-            qg = [new[1], new[0], new[1], new[0]];
         } else if qg[0] == old[0] && qg[1] == old[1] {
             // he**
             qg = [new[0], new[1], qg[2], qg[3]];
@@ -101,14 +98,7 @@ impl Expand<[char; 4], [char; 5], [char; 6]> for [char; 4] {
             // If both, both
             if let Some(ref left) = left {
                 both = Some(ExpansionStruct::new(
-                    [
-                        left.old[0],
-                        left.old[1],
-                        left.old[2],
-                        left.old[3],
-                        left.old[4],
-                        old[1],
-                    ],
+                    [left.old[0], left.old[1], left.old[2], left.old[3], left.old[4], old[1]],
                     [left.new[0], left.new[1], left.new[2], new[0]],
                 ));
             }
@@ -129,8 +119,9 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
 
     fn adapt_boundary_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
         let num_quadgrams = self.get_quadgrams().len();
-        for i in 0..num_quadgrams {
-            let qg = self.uncorpus_quadgram(i);
+
+        for mut i in 0..num_quadgrams {
+            let mut qg = self.uncorpus_quadgram(i);
             let mut exps = [qg[0], qg[1], qg[2], qg[3]].expand(old, new);
 
             macro_rules! sum {
@@ -143,10 +134,17 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
                 }
             }
 
-            self.adapt_boundary_ngram(&mut exps.both, 0);
+            // TODO: Change method signature to unwrap the Option here
+            if exps.both.is_some() {
+                self.adapt_boundary_ngram(&mut exps.both, 0)
+            };
             let bcount = sum!(exps.both);
-            self.adapt_boundary_ngram(&mut exps.left, bcount);
-            self.adapt_boundary_ngram(&mut exps.right, bcount);
+            if exps.left.is_some() {
+                self.adapt_boundary_ngram(&mut exps.left, bcount)
+            };
+            if exps.right.is_some() {
+                self.adapt_boundary_ngram(&mut exps.right, bcount)
+            };
 
             let sum: u32 = sum!(exps.left, exps.right, exps.both);
 
@@ -154,7 +152,25 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
                 debug!(?exps, sum, ?qg, freq_pre = self.quadgrams[i]);
             }
 
-            self.quadgrams[i] -= sum;
+            if qg[0] == old[0] && qg[1] == old[1] && qg[2] == old[0] && qg[3] == old[1] {
+                // hehe
+                qg = [new[0], new[1], new[0], new[1]].to_vec();
+                i = self.corpus_quadgram(&[qg[0], qg[1], qg[2], qg[3]]);
+            } else if qg[0] == old[0] && qg[1] == old[1] {
+                // he**
+                qg = [new[0], new[1], qg[2], qg[3]].to_vec();
+                i = self.corpus_quadgram(&[qg[0], qg[1], qg[2], qg[3]]);
+            } else if qg[1] == old[0] && qg[2] == old[1] {
+                // *he*
+                qg = [qg[0], new[0], new[1], qg[3]].to_vec();
+                i = self.corpus_quadgram(&[qg[0], qg[1], qg[2], qg[3]]);
+            } else if qg[2] == old[0] && qg[3] == old[1] {
+                // **he
+                qg = [qg[0], qg[1], new[0], new[1]].to_vec();
+                i = self.corpus_quadgram(&[qg[0], qg[1], qg[2], qg[3]]);
+            }
+
+            self.get_quadgrams()[i] -= sum;
 
             if DEBUG_QUADGRAMS.contains(&[qg[0], qg[1], qg[2], qg[3]]) {
                 debug!(?exps, sum, ?qg, freq_post = self.quadgrams[i]);
@@ -162,40 +178,47 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
         }
     }
 
+    #[instrument(level = "debug", skip(self))]
     fn adapt_interior_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
         let num_quadgrams = self.get_quadgrams().len();
+        let mut acc = vec![0; num_quadgrams];
+
         for i in 0..num_quadgrams {
             let qg = self.uncorpus_quadgram(i);
 
             // XXX: Probably not correct for replacing repeats
             if qg[0] == old[0] && qg[1] == old[1] && qg[2] == old[0] && qg[3] == old[1] {
+                // hehe
                 #[rustfmt::skip]
-                <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_interior_ngram(self, i, &qg[..], &[new[0], new[1], new[0], new[1]]);
-            } else {
-                if qg[0] == old[0] && qg[1] == old[1] {
-                    #[rustfmt::skip]
-                    <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_interior_ngram(self, i, &qg[..], &[new[0], new[1], qg[2], qg[3]]);
-                }
-                if qg[1] == old[0] && qg[2] == old[1] {
-                    #[rustfmt::skip]
-                    <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_interior_ngram(self, i, &qg[..], &[qg[0], new[0], new[1], qg[3]]);
-                }
-                if qg[2] == old[0] && qg[3] == old[1] {
-                    #[rustfmt::skip]
-                    <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_interior_ngram(self, i, &qg[..], &[qg[0], qg[1], new[0], new[1]]);
-                }
+                <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_interior_ngram(self, i, &qg[..], &[new[0], new[1], new[0], new[1]], &mut acc);
+            } else if qg[0] == old[0] && qg[1] == old[1] {
+                // he**
+                #[rustfmt::skip]
+                <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_interior_ngram(self, i, &qg[..], &[new[0], new[1], qg[2], qg[3]], &mut acc);
+            } else if qg[1] == old[0] && qg[2] == old[1] {
+                // *he*
+                #[rustfmt::skip]
+                <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_interior_ngram(self, i, &qg[..], &[qg[0], new[0], new[1], qg[3]], &mut acc);
+            } else if qg[2] == old[0] && qg[3] == old[1] {
+                // **he
+                #[rustfmt::skip]
+                <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_interior_ngram(self, i, &qg[..], &[qg[0], qg[1], new[0], new[1]], &mut acc);
             }
+        }
+
+        for (a, b) in self.get_quadgrams().iter_mut().zip(&acc) {
+            *a = a.saturating_add_signed(*b);
         }
     }
 
-    fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char]) {
+    fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char], acc: &mut Vec<i32>) {
         let freq = self.get_quadgrams()[old_idx];
         if DEBUG_QUADGRAMS.contains(&[old_ng[0], old_ng[1], old_ng[2], old_ng[3]])
             || DEBUG_QUADGRAMS.contains(&[new_ng[0], new_ng[1], new_ng[2], new_ng[3]])
         {
             debug!(?old_ng, freq_pre = freq);
         }
-        self.get_quadgrams()[old_idx] -= freq;
+        acc[old_idx] = acc[old_idx].saturating_sub_unsigned(freq);
 
         let new_idx = self.corpus_quadgram(&[new_ng[0], new_ng[1], new_ng[2], new_ng[3]]);
         if DEBUG_QUADGRAMS.contains(&[old_ng[0], old_ng[1], old_ng[2], old_ng[3]])
@@ -203,7 +226,7 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
         {
             debug!(?new_ng, freq_pre = self.get_quadgrams()[new_idx]);
         }
-        self.get_quadgrams()[new_idx] += freq;
+        acc[new_idx] = acc[new_idx].saturating_add_unsigned(freq);
         if DEBUG_QUADGRAMS.contains(&[old_ng[0], old_ng[1], old_ng[2], old_ng[3]])
             || DEBUG_QUADGRAMS.contains(&[new_ng[0], new_ng[1], new_ng[2], new_ng[3]])
         {

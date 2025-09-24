@@ -76,12 +76,12 @@ impl Expand<[char; 5], [char; 6], [char; 7]> for [char; 5] {
         if pg[0] == old[0] && pg[1] == old[1] && pg[2] == old[0] && pg[3] == old[1] {
             // hehe*
             pg = [new[0], new[1], new[0], new[1], pg[4]];
-        } else if pg[0] == old[0] && pg[1] == old[1] && pg[3] == old[0] && pg[4] == old[1] {
-            // he*he
-            pg = [new[0], new[1], pg[2], new[0], new[1]];
         } else if pg[1] == old[0] && pg[2] == old[1] && pg[3] == old[0] && pg[4] == old[1] {
             // *hehe
             pg = [pg[0], new[0], new[1], new[0], new[1]];
+        } else if pg[0] == old[0] && pg[1] == old[1] && pg[3] == old[0] && pg[4] == old[1] {
+            // he*he
+            pg = [new[0], new[1], pg[2], new[0], new[1]];
         } else if pg[0] == old[0] && pg[1] == old[1] {
             // he***
             pg = [new[0], new[1], pg[2], pg[3], pg[4]];
@@ -99,22 +99,22 @@ impl Expand<[char; 5], [char; 6], [char; 7]> for [char; 5] {
         // If the pentagram starts with the old bigram suffix, left
         if pg[0] == old[1] {
             left = Some(ExpansionStruct::new(
-                [0 as char; 6],
+                [old[0], self[0], self[1], self[2], self[3], self[4]],
                 [new[1], pg[1], pg[2], pg[3], pg[4]],
             ));
         }
 
         // If the pentagram ends with the old bigram prefix, right
-        if pg[3] == old[0] {
+        if pg[4] == old[0] {
             right = Some(ExpansionStruct::new(
-                [0 as char; 6],
+                [self[0], self[1], self[2], self[3], self[4], old[1]],
                 [pg[0], pg[1], pg[2], pg[3], new[0]],
             ));
 
             // If both, both
             if let Some(ref left) = left {
                 both = Some(ExpansionStruct::new(
-                    [0 as char; 7],
+                    [left.old[0], left.old[1], left.old[2], left.old[3], left.old[4], left.old[5], old[1]],
                     [left.new[0], left.new[1], left.new[2], left.new[3], new[0]],
                 ));
             }
@@ -133,8 +133,9 @@ impl AdaptiveCorpus<[char; 5]> for Corpus {
 
     fn adapt_boundary_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
         let num_pentagrams = self.get_pentagrams().len();
-        for i in 0..num_pentagrams {
-            let pg = self.uncorpus_pentagram(i);
+
+        for mut i in 0..num_pentagrams {
+            let mut pg = self.uncorpus_pentagram(i);
             let mut exps = [pg[0], pg[1], pg[2], pg[3], pg[4]].expand(old, new);
 
             macro_rules! sum {
@@ -147,80 +148,104 @@ impl AdaptiveCorpus<[char; 5]> for Corpus {
                 }
             }
 
-            self.adapt_boundary_ngram(&mut exps.both, 0);
+            // TODO: Change method signature to unwrap the Option here
+            if exps.both.is_some() {
+                self.adapt_boundary_ngram(&mut exps.both, 0)
+            };
             let bcount = sum!(exps.both);
-            self.adapt_boundary_ngram(&mut exps.left, bcount);
-            self.adapt_boundary_ngram(&mut exps.right, bcount);
+            if exps.left.is_some() {
+                self.adapt_boundary_ngram(&mut exps.left, bcount)
+            };
+            if exps.right.is_some() {
+                self.adapt_boundary_ngram(&mut exps.right, bcount)
+            };
 
             let sum: u32 = sum!(exps.left, exps.right, exps.both);
 
-            self.pentagrams[i] -= sum;
+            if pg[0] == old[0] && pg[1] == old[1] && pg[2] == old[0] && pg[3] == old[1] {
+                // hehe*
+                pg = [new[0], new[1], new[0], new[1], pg[4]].to_vec();
+                i = self.corpus_pentagram(&[pg[0], pg[1], pg[2], pg[3], pg[4]]);
+            } else if pg[1] == old[0] && pg[2] == old[1] && pg[3] == old[0] && pg[4] == old[1] {
+                // *hehe
+                i = self.corpus_pentagram(&[pg[0], pg[1], pg[2], pg[3], pg[4]]);
+            } else if pg[0] == old[0] && pg[1] == old[1] && pg[3] == old[0] && pg[4] == old[1] {
+                // he*he
+                pg = [new[0], new[1], pg[2], new[0], new[1]].to_vec();
+                i = self.corpus_pentagram(&[pg[0], pg[1], pg[2], pg[3], pg[4]]);
+            } else if pg[0] == old[0] && pg[1] == old[1] {
+                // he***
+                pg = [new[0], new[1], pg[2], pg[3], pg[4]].to_vec();
+                i = self.corpus_pentagram(&[pg[0], pg[1], pg[2], pg[3], pg[4]]);
+            } else if pg[1] == old[0] && pg[2] == old[1] {
+                // *he**
+                pg = [pg[0], new[0], new[1], pg[3], pg[4]].to_vec();
+                i = self.corpus_pentagram(&[pg[0], pg[1], pg[2], pg[3], pg[4]]);
+            } else if pg[2] == old[0] && pg[3] == old[1] {
+                // **he*
+                pg = [pg[0], pg[1], new[0], new[1], pg[4]].to_vec();
+                i = self.corpus_pentagram(&[pg[0], pg[1], pg[2], pg[3], pg[4]]);
+            } else if pg[3] == old[0] && pg[4] == old[1] {
+                // ***he
+                pg = [pg[0], pg[1], pg[2], new[0], new[1]].to_vec();
+                i = self.corpus_pentagram(&[pg[0], pg[1], pg[2], pg[3], pg[4]]);
+            }
+
+            self.get_pentagrams()[i] -= sum;
         }
     }
 
+    #[instrument(level = "debug", skip(self))]
     fn adapt_interior_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
         let num_pentagrams = self.get_pentagrams().len();
+        let mut acc = vec![0; num_pentagrams];
+
         for i in 0..num_pentagrams {
             let pg = self.uncorpus_pentagram(i);
 
             // XXX: Probably not correct for replacing repeats
             if pg[0] == old[0] && pg[1] == old[1] && pg[2] == old[0] && pg[3] == old[1] {
-                <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_interior_ngram(
-                    self,
-                    i,
-                    &pg[..],
-                    &[new[0], new[1], new[0], new[1], pg[4]],
-                );
+                // hehe*
+                #[rustfmt::skip]
+                <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_interior_ngram(self, i, &pg[..], &[new[0], new[1], new[0], new[1], pg[4]], &mut acc);
             } else if pg[1] == old[0] && pg[2] == old[1] && pg[3] == old[0] && pg[4] == old[1] {
-                <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_interior_ngram(
-                    self,
-                    i,
-                    &pg[..],
-                    &[pg[0], new[0], new[1], new[0], new[1]],
-                );
-            } else {
-                if pg[0] == old[0] && pg[1] == old[1] {
-                    <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_interior_ngram(
-                        self,
-                        i,
-                        &pg[..],
-                        &[new[0], new[1], pg[2], pg[3], pg[4]],
-                    );
-                }
-                if pg[1] == old[0] && pg[2] == old[1] {
-                    <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_interior_ngram(
-                        self,
-                        i,
-                        &pg[..],
-                        &[pg[0], new[0], new[1], pg[3], pg[4]],
-                    );
-                }
-                if pg[2] == old[0] && pg[3] == old[1] {
-                    <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_interior_ngram(
-                        self,
-                        i,
-                        &pg[..],
-                        &[pg[0], pg[1], new[0], new[1], pg[4]],
-                    );
-                }
-                if pg[3] == old[0] && pg[4] == old[1] {
-                    <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_interior_ngram(
-                        self,
-                        i,
-                        &pg[..],
-                        &[pg[0], pg[1], pg[2], new[0], new[1]],
-                    );
-                }
+                // *hehe
+                #[rustfmt::skip]
+                <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_interior_ngram(self, i, &pg[..], &[pg[0], new[0], new[1], new[0], new[1]], &mut acc);
+            } else if pg[0] == old[0] && pg[1] == old[1] && pg[3] == old[0] && pg[4] == old[1] {
+                // he*he
+                #[rustfmt::skip]
+                <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_interior_ngram(self, i, &pg[..], &[new[0], new[1], pg[2], new[0], new[1]], &mut acc);
+            } else if pg[0] == old[0] && pg[1] == old[1] {
+                // he***
+                #[rustfmt::skip]
+                <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_interior_ngram(self, i, &pg[..], &[new[0], new[1], pg[2], pg[3], pg[4]], &mut acc);
+            } else if pg[1] == old[0] && pg[2] == old[1] {
+                // *he**
+                #[rustfmt::skip]
+                <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_interior_ngram(self, i, &pg[..], &[pg[0], new[0], new[1], pg[3], pg[4]], &mut acc);
+            } else if pg[2] == old[0] && pg[3] == old[1] {
+                // **he*
+                #[rustfmt::skip]
+                <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_interior_ngram(self, i, &pg[..], &[pg[0], pg[1], new[0], new[1], pg[4]], &mut acc);
+            } else if pg[3] == old[0] && pg[4] == old[1] {
+                // ***he
+                #[rustfmt::skip]
+                <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_interior_ngram(self, i, &pg[..], &[pg[0], pg[1], pg[2], new[0], new[1]], &mut acc);
             }
+        }
+
+        for (a, b) in self.get_pentagrams().iter_mut().zip(&acc) {
+            *a = a.checked_add_signed(*b).expect("Overflow!");
         }
     }
 
-    fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char]) {
+    fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char], acc: &mut Vec<i32>) {
         let freq = self.get_pentagrams()[old_idx];
-        self.get_pentagrams()[old_idx] -= freq;
+        acc[old_idx] = acc[old_idx].checked_sub_unsigned(freq).unwrap();
 
         let new_idx =
             self.corpus_pentagram(&[new_ng[0], new_ng[1], new_ng[2], new_ng[3], new_ng[4]]);
-        self.get_pentagrams()[new_idx] += freq;
+        acc[new_idx] = acc[new_idx].checked_add_unsigned(freq).unwrap();
     }
 }

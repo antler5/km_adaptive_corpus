@@ -119,23 +119,29 @@ impl AdaptiveCorpus<[char; 2]> for Corpus {
 
     fn adapt_interior_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
         let num_bigrams = self.get_bigrams().len();
+        let mut acc = vec![0; num_bigrams];
+
         for i in 0..num_bigrams {
             let bg = self.uncorpus_bigram(i);
             if bg[0] == old[0] && bg[1] == old[1] {
                 // self.adapt_interior_ngram(i, &bg[..], &[new[0], new[1]]);
                 #[rustfmt::skip]
-                <Corpus as AdaptiveCorpus<[char; 2]>>::adapt_interior_ngram(self, i, &bg[..], &[new[0], new[1]]);
+                <Corpus as AdaptiveCorpus<[char; 2]>>::adapt_interior_ngram(self, i, &bg[..], &[new[0], new[1]], &mut acc);
             }
+        }
+
+        for (a, b) in self.get_bigrams().iter_mut().zip(&acc) {
+            *a = a.checked_add_signed(*b).expect("Overflow!");
         }
     }
 
-    fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char]) {
+    fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char], acc: &mut Vec<i32>) {
         let _ = old_ng;
 
         let freq = self.get_bigrams()[old_idx];
-        self.get_bigrams()[old_idx] -= freq;
+        acc[old_idx] = acc[old_idx].checked_sub_unsigned(freq).expect("Overflow!");
 
         let new_idx = self.corpus_bigram(&[new_ng[0], new_ng[1]]);
-        self.get_bigrams()[new_idx] += freq;
+        acc[new_idx] = acc[new_idx].checked_add_unsigned(freq).expect("Overflow!");
     }
 }
