@@ -7,6 +7,7 @@ use crate::adaptive_corpus::*;
 use kc::Corpus;
 
 use tracing::debug;
+use tracing::instrument;
 
 impl GetCount<[char; 5], [char; 4]> for ExpansionStruct<[char; 5], [char; 4]> {
     /// Count pentagrams.
@@ -117,6 +118,7 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
         <Corpus as AdaptiveCorpus<[char; 4]>>::adapt_boundary_ngrams(self, old, new);
     }
 
+    #[instrument(level = "debug", skip(self))]
     fn adapt_boundary_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
         let num_quadgrams = self.get_quadgrams().len();
 

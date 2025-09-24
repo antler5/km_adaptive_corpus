@@ -178,7 +178,7 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
         }
     }
 
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "debug", skip(self))]
     fn adapt_interior_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
         let num_trigrams = self.get_trigrams().len();
         let mut acc = vec![0; num_trigrams];

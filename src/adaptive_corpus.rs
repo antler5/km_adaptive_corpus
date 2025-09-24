@@ -33,15 +33,15 @@ mod tests;
 
 #[rustfmt::skip]
 static DEBUG_TRIGRAMS: &[[char; 3]] = &[
-    ['e', 'h', '†'],
-    ['e', 'h', 'e'],
-    ['†', 'h', '†'],
+    ['r', 'h', 'e'],
 ];
 
 #[rustfmt::skip]
 static DEBUG_QUADGRAMS: &[[char; 4]] = &[
-    ['h', 'e', 'h', '†'],
-    ['h', '†', 'h', '†'],
+    ['e', 'r', 'h', 'e'],
+    ['e', 'r', 'h', '†'],
+    ['r', '†', 'h', 'e'],
+    ['r', '†', 'h', '†'],
 ];
 
 // # Generics

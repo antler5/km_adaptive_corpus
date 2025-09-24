@@ -126,6 +126,7 @@ impl Expand<[char; 5], [char; 6], [char; 7]> for [char; 5] {
 
 /// Methods for adapting pentagram frequencies to reflect bigram substitutions.
 impl AdaptiveCorpus<[char; 5]> for Corpus {
+    #[instrument(level = "debug", skip(self))]
     fn adapt_ngrams(&mut self, old: [char; 2], new: [char; 2]) {
         // self.adapt_interior_ngrams(old, new);
         <Corpus as AdaptiveCorpus<[char; 5]>>::adapt_interior_ngrams(self, old, new);
