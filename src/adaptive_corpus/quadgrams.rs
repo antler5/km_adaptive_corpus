@@ -28,7 +28,7 @@ impl GetCount<[char; 6], [char; 4]> for ExpansionStruct<[char; 6], [char; 4]> {
             let suffix_idx = corpus.corpus_pentagram(suffix);
             let pgs = corpus.get_pentagrams();
 
-            return (pgs[prefix_idx] + pgs[suffix_idx]) / 2
+            std::cmp::min(pgs[prefix_idx], pgs[suffix_idx])
         }
 
         #[cfg(not(feature = "synth-large-ngrams"))]
