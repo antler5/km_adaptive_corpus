@@ -202,6 +202,9 @@ impl AdaptiveCorpus<[char; 5]> for Corpus {
         let mut acc = vec![0; num_pentagrams];
 
         for i in 0..num_pentagrams {
+            if self.pentagrams[i] == 0 {
+                continue
+            }
             let pg = self.uncorpus_pentagram(i);
 
             // XXX: Probably not correct for replacing repeats

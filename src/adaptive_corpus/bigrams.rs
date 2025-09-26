@@ -122,6 +122,9 @@ impl AdaptiveCorpus<[char; 2]> for Corpus {
         let mut acc = vec![0; num_bigrams];
 
         for i in 0..num_bigrams {
+            if self.bigrams[i] == 0 {
+                continue
+            }
             let bg = self.uncorpus_bigram(i);
             if bg[0] == old[0] && bg[1] == old[1] {
                 // self.adapt_interior_ngram(i, &bg[..], &[new[0], new[1]]);

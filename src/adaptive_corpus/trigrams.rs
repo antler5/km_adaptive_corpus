@@ -184,6 +184,9 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
         let mut acc = vec![0; num_trigrams];
 
         for i in 0..num_trigrams {
+            if self.trigrams[i] == 0 {
+                continue
+            }
             let tg = self.uncorpus_trigram(i);
             if tg[0] == old[0] && tg[1] == old[1] {
                 // he*

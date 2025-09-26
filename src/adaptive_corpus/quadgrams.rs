@@ -123,6 +123,9 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
         let num_quadgrams = self.get_quadgrams().len();
 
         for mut i in 0..num_quadgrams {
+            if self.quadgrams[i] == 0 {
+                continue
+            }
             let mut qg = self.uncorpus_quadgram(i);
             let mut exps = [qg[0], qg[1], qg[2], qg[3]].expand(old, new);
 
