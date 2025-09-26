@@ -146,10 +146,6 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
 
             let sum: u32 = sum!(exps.left, exps.right, exps.both);
 
-            if DEBUG_TRIGRAMS.contains(&[tg[0], tg[1], tg[2]]) {
-                debug!(?exps, ?tg, sum, freq_pre = self.trigrams[i]);
-            }
-
             if tg[0] == old[0] && tg[1] == old[1] {
                 // he*
                 tg = [new[0], new[1], tg[2]].to_vec();
@@ -161,14 +157,6 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
             }
 
             self.get_trigrams()[i] -= sum;
-
-            if DEBUG_TRIGRAMS.contains(&[tg[0], tg[1], tg[2]]) {
-                debug!(?exps, ?tg, sum, freq_post = self.trigrams[i]);
-            }
-
-            if DEBUG_TRIGRAMS.contains(&[tg[0], tg[1], tg[2]]) {
-                debug!(?exps, ?tg, sum, freq_post = self.trigrams[i]);
-            }
 
             // Skipgrams
             // XXX: Half-assed, assumes all corpus chars were valid.
@@ -209,26 +197,10 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
 
     fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char], acc: &mut Vec<i32>) {
         let freq = self.get_trigrams()[old_idx];
-
-        if DEBUG_TRIGRAMS.contains(&[old_ng[0], old_ng[1], old_ng[2]])
-            || DEBUG_TRIGRAMS.contains(&[new_ng[0], new_ng[1], new_ng[2]])
-        {
-            debug!(?old_ng, freq_pre = freq);
-        }
-        acc[old_idx] = acc[old_idx].checked_sub_unsigned(freq).expect("Overflow!");
-
         let new_idx = self.corpus_trigram(&[new_ng[0], new_ng[1], new_ng[2]]);
-        if DEBUG_TRIGRAMS.contains(&[old_ng[0], old_ng[1], old_ng[2]])
-            || DEBUG_TRIGRAMS.contains(&[new_ng[0], new_ng[1], new_ng[2]])
-        {
-            debug!(?new_ng, freq_pre = self.get_trigrams()[new_idx]);
-        }
+
+        acc[old_idx] = acc[old_idx].checked_sub_unsigned(freq).expect("Overflow!");
         acc[new_idx] = acc[new_idx].checked_add_unsigned(freq).expect("Overflow!");
-        if DEBUG_TRIGRAMS.contains(&[old_ng[0], old_ng[1], old_ng[2]])
-            || DEBUG_TRIGRAMS.contains(&[new_ng[0], new_ng[1], new_ng[2]])
-        {
-            debug!(?new_ng, freq_post = self.get_trigrams()[new_idx]);
-        }
 
         // Skipgrams
         // XXX: Half-assed skipgrams, assumes all corpus chars were valid.

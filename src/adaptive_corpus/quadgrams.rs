@@ -153,10 +153,6 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
 
             let sum: u32 = sum!(exps.left, exps.right, exps.both);
 
-            if DEBUG_QUADGRAMS.contains(&[qg[0], qg[1], qg[2], qg[3]]) {
-                debug!(?exps, sum, ?qg, freq_pre = self.quadgrams[i]);
-            }
-
             if qg[0] == old[0] && qg[1] == old[1] && qg[2] == old[0] && qg[3] == old[1] {
                 // hehe
                 qg = [new[0], new[1], new[0], new[1]].to_vec();
@@ -176,10 +172,6 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
             }
 
             self.get_quadgrams()[i] -= sum;
-
-            if DEBUG_QUADGRAMS.contains(&[qg[0], qg[1], qg[2], qg[3]]) {
-                debug!(?exps, sum, ?qg, freq_post = self.quadgrams[i]);
-            }
         }
     }
 
@@ -218,24 +210,9 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
 
     fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char], acc: &mut Vec<i32>) {
         let freq = self.get_quadgrams()[old_idx];
-        if DEBUG_QUADGRAMS.contains(&[old_ng[0], old_ng[1], old_ng[2], old_ng[3]])
-            || DEBUG_QUADGRAMS.contains(&[new_ng[0], new_ng[1], new_ng[2], new_ng[3]])
-        {
-            debug!(?old_ng, freq_pre = freq);
-        }
-        acc[old_idx] = acc[old_idx].saturating_sub_unsigned(freq);
-
         let new_idx = self.corpus_quadgram(&[new_ng[0], new_ng[1], new_ng[2], new_ng[3]]);
-        if DEBUG_QUADGRAMS.contains(&[old_ng[0], old_ng[1], old_ng[2], old_ng[3]])
-            || DEBUG_QUADGRAMS.contains(&[new_ng[0], new_ng[1], new_ng[2], new_ng[3]])
-        {
-            debug!(?new_ng, freq_pre = self.get_quadgrams()[new_idx]);
-        }
+
+        acc[old_idx] = acc[old_idx].saturating_sub_unsigned(freq);
         acc[new_idx] = acc[new_idx].saturating_add_unsigned(freq);
-        if DEBUG_QUADGRAMS.contains(&[old_ng[0], old_ng[1], old_ng[2], old_ng[3]])
-            || DEBUG_QUADGRAMS.contains(&[new_ng[0], new_ng[1], new_ng[2], new_ng[3]])
-        {
-            debug!(?new_ng, freq_post = self.get_quadgrams()[new_idx]);
-        }
     }
 }
