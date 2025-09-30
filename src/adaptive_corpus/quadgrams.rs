@@ -6,7 +6,6 @@ use crate::CorpusExt;
 use crate::adaptive_corpus::*;
 use kc::Corpus;
 
-use tracing::debug;
 use tracing::instrument;
 
 impl GetCount<[char; 5], [char; 4]> for ExpansionStruct<[char; 5], [char; 4]> {
@@ -75,7 +74,7 @@ impl Expand<[char; 4], [char; 5], [char; 6]> for [char; 4] {
     ) -> Expansions<[char; 4], [char; 5], [char; 6]> {
         let (mut left, mut right, mut both) = (None, None, None);
 
-        let mut qg = self.clone();
+        let mut qg = *self;
         if qg[0] == old[0] && qg[1] == old[1] && qg[2] == old[0] && qg[3] == old[1] {
             // hehe
             qg = [new[0], new[1], new[0], new[1]];

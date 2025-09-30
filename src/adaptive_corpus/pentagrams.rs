@@ -96,7 +96,7 @@ impl Expand<[char; 5], [char; 6], [char; 7]> for [char; 5] {
     ) -> Expansions<[char; 5], [char; 6], [char; 7]> {
         let (mut left, mut right, mut both) = (None, None, None);
 
-        let mut pg = self.clone();
+        let mut pg = *self;
         if pg[0] == old[0] && pg[1] == old[1] && pg[2] == old[0] && pg[3] == old[1] {
             // hehe*
             pg = [new[0], new[1], new[0], new[1], pg[4]];
