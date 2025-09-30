@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
+pub use kc::Corpus;
+
 pub mod adaptive_corpus;
 pub use adaptive_corpus::AdaptiveCorpus;
 

@@ -191,7 +191,7 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
         }
 
         for (a, b) in self.get_trigrams().iter_mut().zip(&acc) {
-            *a = a.checked_add_signed(*b).expect("Overflow!");
+            *a = a.saturating_add_signed(*b);
         }
     }
 
