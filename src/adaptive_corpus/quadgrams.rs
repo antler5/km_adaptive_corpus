@@ -50,9 +50,6 @@ impl<U: CorpusExt> AdaptiveCorpusBase<[char; 4]> for U {
             exp.set_count(exp.get_count(self) - bcount);
 
             let idx = self.corpus_quadgram(&exp.new);
-            if DEBUG_QUADGRAMS.contains(&exp.new) {
-                debug!(?exp, freq_pre = self.get_quadgrams()[idx], bcount);
-            }
             self.get_quadgrams()[idx] += exp.read_count();
         }
     }

@@ -40,9 +40,6 @@ impl<U: CorpusExt> AdaptiveCorpusBase<[char; 3]> for U {
             exp.set_count(exp.get_count(self) - bcount);
 
             let idx = self.corpus_trigram(&exp.new);
-            if DEBUG_TRIGRAMS.contains(&exp.new) {
-                debug!(?exp, freq_pre = self.get_trigrams()[idx], bcount);
-            }
             self.get_trigrams()[idx] += exp.read_count();
 
             // Skipgrams

@@ -20,52 +20,31 @@
 //! <Corpus as AdaptiveCorpus<[char; 3]>>::adapt_ngrams(&mut corpus, ['h', 'e'], ['h', '†']);
 //! ```
 
-use crate::CorpusExt;
-
 pub mod bigrams;
 pub mod monograms;
 pub mod pentagrams;
 pub mod quadgrams;
 pub mod trigrams;
 
+use crate::CorpusExt;
+
 #[cfg(test)]
 mod tests;
 
-#[rustfmt::skip]
-static DEBUG_TRIGRAMS: &[[char; 3]] = &[
-    // ['r', 'h', 'e'],
-];
-
-#[rustfmt::skip]
-static DEBUG_QUADGRAMS: &[[char; 4]] = &[
-    // ['e', 'r', 'h', 'e'],
-    // ['e', 'r', 'h', '†'],
-    // ['r', '†', 'h', 'e'],
-    // ['r', '†', 'h', '†'],
-];
+use std::fmt::Debug;
 
 // # Generics
 
 // XXX: There being two uses of "old" is confusing.
 
+/// # Generics
+/// - `O`: Old, the length of the source ngram.
+/// - `N`: New, the length of the replacement ngram.
+#[derive(Debug)]
 pub struct ExpansionStruct<O, N> {
     old: O,
     new: N,
     count: Option<u32>,
-}
-
-impl<O, N> std::fmt::Debug for ExpansionStruct<O, N>
-where
-    O: std::fmt::Debug,
-    N: std::fmt::Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ExpansionStruct")
-            .field("old", &self.old)
-            .field("new", &self.new)
-            .field("count", &self.count)
-            .finish()
-    }
 }
 
 impl<O, N> ExpansionStruct<O, N> {
@@ -86,6 +65,10 @@ impl<O, N> ExpansionStruct<O, N> {
     }
 }
 
+/// # Generics
+/// - `N`: New, the length of the replacement ngram.
+/// - `S`: Short, the length of a `left` or `right` expansion.
+/// - `L`: Long, the length of a `both` expansion.
 #[derive(Debug)]
 pub struct Expansions<N, S, L> {
     left: Option<ExpansionStruct<S, N>>,
@@ -93,6 +76,10 @@ pub struct Expansions<N, S, L> {
     both: Option<ExpansionStruct<L, N>>,
 }
 
+/// # Generics
+/// - `N`: New, the length of the replacement ngram.
+/// - `S`: Short, the length of a `left` or `right` expansion.
+/// - `L`: Long, the length of a `both` expansion.
 trait Expand<N, S, L> {
     fn expand(&self, old: [char; 2], new: [char; 2]) -> Expansions<N, S, L>;
 }
@@ -102,10 +89,9 @@ pub trait GetCount<O, N> {
 }
 
 pub trait AdaptiveCorpusBase<N>: CorpusExt {
-    fn adapt_boundary_ngram<O>(&mut self, exp: &mut Option<ExpansionStruct<O, N>>, bcount: u32)
+    fn adapt_boundary_ngram<O: Debug>(&mut self, exp: &mut Option<ExpansionStruct<O, N>>, bcount: u32)
     where
-        ExpansionStruct<O, N>: GetCount<O, N>,
-        O: std::fmt::Debug;
+        ExpansionStruct<O, N>: GetCount<O, N>;
 }
 
 pub trait AdaptiveCorpus<N>: AdaptiveCorpusBase<N> {
