@@ -110,5 +110,12 @@ impl AdaptiveCorpus<[char; 1]> for Corpus {
     }
 
     fn adapt_interior_ngrams(&mut self, old: [char; 2], new: [char; 2]) {}
-    fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char], acc: &mut Vec<i32>) {}
+    fn adapt_interior_ngram(
+        &mut self,
+        old_idx: usize,
+        old_ng: &[char],
+        new_ng: &[char],
+        acc: &mut Vec<i32>,
+    ) {
+    }
 }

@@ -13,8 +13,20 @@ impl GetCount<[char; 6], [char; 5]> for ExpansionStruct<[char; 6], [char; 5]> {
     fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32 {
         #[cfg(feature = "synth-large-ngrams")]
         {
-            let prefix = &[self.old[0], self.old[1], self.old[2], self.old[3], self.old[4]];
-            let suffix = &[self.old[1], self.old[2], self.old[3], self.old[4], self.old[5]];
+            let prefix = &[
+                self.old[0],
+                self.old[1],
+                self.old[2],
+                self.old[3],
+                self.old[4],
+            ];
+            let suffix = &[
+                self.old[1],
+                self.old[2],
+                self.old[3],
+                self.old[4],
+                self.old[5],
+            ];
             let prefix_idx = corpus.corpus_pentagram(prefix);
             let suffix_idx = corpus.corpus_pentagram(suffix);
             let pgs = corpus.get_pentagrams();
@@ -32,8 +44,20 @@ impl GetCount<[char; 7], [char; 5]> for ExpansionStruct<[char; 7], [char; 5]> {
     fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32 {
         #[cfg(feature = "synth-large-ngrams")]
         {
-            let prefix = &[self.old[0], self.old[1], self.old[2], self.old[3], self.old[4]];
-            let suffix = &[self.old[2], self.old[3], self.old[4], self.old[5], self.old[6]];
+            let prefix = &[
+                self.old[0],
+                self.old[1],
+                self.old[2],
+                self.old[3],
+                self.old[4],
+            ];
+            let suffix = &[
+                self.old[2],
+                self.old[3],
+                self.old[4],
+                self.old[5],
+                self.old[6],
+            ];
             let prefix_idx = corpus.corpus_pentagram(prefix);
             let suffix_idx = corpus.corpus_pentagram(suffix);
             let sgs = corpus.get_pentagrams();
@@ -114,7 +138,15 @@ impl Expand<[char; 5], [char; 6], [char; 7]> for [char; 5] {
             // If both, both
             if let Some(ref left) = left {
                 both = Some(ExpansionStruct::new(
-                    [left.old[0], left.old[1], left.old[2], left.old[3], left.old[4], left.old[5], old[1]],
+                    [
+                        left.old[0],
+                        left.old[1],
+                        left.old[2],
+                        left.old[3],
+                        left.old[4],
+                        left.old[5],
+                        old[1],
+                    ],
                     [left.new[0], left.new[1], left.new[2], left.new[3], new[0]],
                 ));
             }
@@ -203,7 +235,7 @@ impl AdaptiveCorpus<[char; 5]> for Corpus {
 
         for i in 0..num_pentagrams {
             if self.pentagrams[i] == 0 {
-                continue
+                continue;
             }
             let pg = self.uncorpus_pentagram(i);
 
@@ -244,7 +276,13 @@ impl AdaptiveCorpus<[char; 5]> for Corpus {
         }
     }
 
-    fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char], acc: &mut Vec<i32>) {
+    fn adapt_interior_ngram(
+        &mut self,
+        old_idx: usize,
+        old_ng: &[char],
+        new_ng: &[char],
+        acc: &mut Vec<i32>,
+    ) {
         let freq = self.get_pentagrams()[old_idx];
         acc[old_idx] = acc[old_idx].checked_sub_unsigned(freq).unwrap();
 

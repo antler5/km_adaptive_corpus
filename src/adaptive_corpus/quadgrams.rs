@@ -22,8 +22,20 @@ impl GetCount<[char; 6], [char; 4]> for ExpansionStruct<[char; 6], [char; 4]> {
     fn get_count<U: CorpusExt>(&self, corpus: &mut U) -> u32 {
         #[cfg(feature = "synth-large-ngrams")]
         {
-            let prefix = &[self.old[0], self.old[1], self.old[2], self.old[3], self.old[4]];
-            let suffix = &[self.old[1], self.old[2], self.old[3], self.old[4], self.old[5]];
+            let prefix = &[
+                self.old[0],
+                self.old[1],
+                self.old[2],
+                self.old[3],
+                self.old[4],
+            ];
+            let suffix = &[
+                self.old[1],
+                self.old[2],
+                self.old[3],
+                self.old[4],
+                self.old[5],
+            ];
             let prefix_idx = corpus.corpus_pentagram(prefix);
             let suffix_idx = corpus.corpus_pentagram(suffix);
             let pgs = corpus.get_pentagrams();
@@ -96,7 +108,14 @@ impl Expand<[char; 4], [char; 5], [char; 6]> for [char; 4] {
             // If both, both
             if let Some(ref left) = left {
                 both = Some(ExpansionStruct::new(
-                    [left.old[0], left.old[1], left.old[2], left.old[3], left.old[4], old[1]],
+                    [
+                        left.old[0],
+                        left.old[1],
+                        left.old[2],
+                        left.old[3],
+                        left.old[4],
+                        old[1],
+                    ],
                     [left.new[0], left.new[1], left.new[2], new[0]],
                 ));
             }
@@ -121,7 +140,7 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
 
         for mut i in 0..num_quadgrams {
             if self.quadgrams[i] == 0 {
-                continue
+                continue;
             }
             let mut qg = self.uncorpus_quadgram(i);
             let mut exps = [qg[0], qg[1], qg[2], qg[3]].expand(old, new);
@@ -205,7 +224,13 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
         }
     }
 
-    fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char], acc: &mut Vec<i32>) {
+    fn adapt_interior_ngram(
+        &mut self,
+        old_idx: usize,
+        old_ng: &[char],
+        new_ng: &[char],
+        acc: &mut Vec<i32>,
+    ) {
         let freq = self.get_quadgrams()[old_idx];
         let new_idx = self.corpus_quadgram(&[new_ng[0], new_ng[1], new_ng[2], new_ng[3]]);
 

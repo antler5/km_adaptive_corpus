@@ -170,7 +170,7 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
 
         for i in 0..num_trigrams {
             if self.trigrams[i] == 0 {
-                continue
+                continue;
             }
             let tg = self.uncorpus_trigram(i);
             if tg[0] == old[0] && tg[1] == old[1] {
@@ -192,7 +192,13 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
         }
     }
 
-    fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char], acc: &mut Vec<i32>) {
+    fn adapt_interior_ngram(
+        &mut self,
+        old_idx: usize,
+        old_ng: &[char],
+        new_ng: &[char],
+        acc: &mut Vec<i32>,
+    ) {
         let freq = self.get_trigrams()[old_idx];
         let new_idx = self.corpus_trigram(&[new_ng[0], new_ng[1], new_ng[2]]);
 

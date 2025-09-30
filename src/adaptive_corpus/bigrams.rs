@@ -123,7 +123,7 @@ impl AdaptiveCorpus<[char; 2]> for Corpus {
 
         for i in 0..num_bigrams {
             if self.bigrams[i] == 0 {
-                continue
+                continue;
             }
             let bg = self.uncorpus_bigram(i);
             if bg[0] == old[0] && bg[1] == old[1] {
@@ -138,7 +138,13 @@ impl AdaptiveCorpus<[char; 2]> for Corpus {
         }
     }
 
-    fn adapt_interior_ngram(&mut self, old_idx: usize, old_ng: &[char], new_ng: &[char], acc: &mut Vec<i32>) {
+    fn adapt_interior_ngram(
+        &mut self,
+        old_idx: usize,
+        old_ng: &[char],
+        new_ng: &[char],
+        acc: &mut Vec<i32>,
+    ) {
         let _ = old_ng;
 
         let freq = self.get_bigrams()[old_idx];
