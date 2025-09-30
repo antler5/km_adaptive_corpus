@@ -5,6 +5,7 @@
 use crate::CorpusExt;
 use crate::adaptive_corpus::*;
 use kc::Corpus;
+use crate::sum;
 
 impl GetCount<[char; 3], [char; 2]> for ExpansionStruct<[char; 3], [char; 2]> {
     /// Count trigrams.
@@ -95,16 +96,6 @@ impl AdaptiveCorpus<[char; 2]> for Corpus {
         for i in 0..num_bigrams {
             let bg = self.uncorpus_bigram(i);
             let mut exps = [bg[0], bg[1]].expand(old, new);
-
-            macro_rules! sum {
-                ($($bg:expr),*) => {
-                    [$($bg.as_ref()
-                          .and_then(|x| Some(x.read_count()))
-                          .unwrap_or(0)
-                     ),*
-                    ].into_iter().sum()
-                }
-            }
 
             self.adapt_boundary_ngram(&mut exps.both, 0);
             let bcount = sum!(exps.both);

@@ -4,6 +4,7 @@
 
 use crate::CorpusExt;
 use crate::adaptive_corpus::*;
+use crate::sum;
 
 use kc::Corpus;
 
@@ -117,16 +118,6 @@ impl AdaptiveCorpus<[char; 3]> for Corpus {
         for mut i in 0..num_trigrams {
             let mut tg = self.uncorpus_trigram(i);
             let mut exps = [tg[0], tg[1], tg[2]].expand(old, new);
-
-            macro_rules! sum {
-                ($($tg:expr),*) => {
-                    [$($tg.as_ref()
-                          .and_then(|x| Some(x.read_count()))
-                          .unwrap_or(0)
-                     ),*
-                    ].into_iter().sum()
-                }
-            }
 
             // TODO: Change method signature to unwrap the Option here
             if exps.both.is_some() {

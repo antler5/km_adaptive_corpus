@@ -5,6 +5,7 @@
 use crate::CorpusExt;
 use crate::adaptive_corpus::*;
 use kc::Corpus;
+use crate::sum;
 
 use tracing::instrument;
 
@@ -170,16 +171,6 @@ impl AdaptiveCorpus<[char; 5]> for Corpus {
         for mut i in 0..num_pentagrams {
             let mut pg = self.uncorpus_pentagram(i);
             let mut exps = [pg[0], pg[1], pg[2], pg[3], pg[4]].expand(old, new);
-
-            macro_rules! sum {
-                ($($pg:expr),*) => {
-                    [$($pg.as_ref()
-                          .and_then(|x| Some(x.read_count()))
-                          .unwrap_or(0)
-                     ),*
-                    ].into_iter().sum()
-                }
-            }
 
             // TODO: Change method signature to unwrap the Option here
             if exps.both.is_some() {

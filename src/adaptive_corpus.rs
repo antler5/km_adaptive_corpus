@@ -76,6 +76,18 @@ pub struct Expansions<N, S, L> {
     both: Option<ExpansionStruct<L, N>>,
 }
 
+// XXX: Could probably be some clever impl block.
+#[macro_export]
+macro_rules! sum {
+    ($($tg:expr),*) => {
+        [$($tg.as_ref()
+              .and_then(|x| Some(x.read_count()))
+              .unwrap_or(0)
+         ),*
+        ].into_iter().sum()
+    }
+}
+
 /// # Generics
 /// - `N`: New, the length of the replacement ngram.
 /// - `S`: Short, the length of a `left` or `right` expansion.
