@@ -5,7 +5,6 @@
 use crate::CorpusExt;
 use crate::adaptive_corpus::*;
 use kc::Corpus;
-use crate::sum;
 
 use tracing::instrument;
 
@@ -149,7 +148,7 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
             if exps.both.is_some() {
                 self.adapt_boundary_ngram(&mut exps.both, 0)
             };
-            let bcount = sum!(exps.both);
+            let bcount = exps.sum(&[ExpansionKind::Both]);
             if exps.left.is_some() {
                 self.adapt_boundary_ngram(&mut exps.left, bcount)
             };
@@ -157,7 +156,7 @@ impl AdaptiveCorpus<[char; 4]> for Corpus {
                 self.adapt_boundary_ngram(&mut exps.right, bcount)
             };
 
-            let sum: u32 = sum!(exps.left, exps.right, exps.both);
+            let sum = exps.sum(&[ExpansionKind::Left, ExpansionKind::Right, ExpansionKind::Both]);
 
             if qg[0] == old[0] && qg[1] == old[1] && qg[2] == old[0] && qg[3] == old[1] {
                 // hehe

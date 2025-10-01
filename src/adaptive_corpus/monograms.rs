@@ -5,7 +5,6 @@
 use crate::CorpusExt;
 use crate::adaptive_corpus::*;
 use kc::Corpus;
-use crate::sum;
 
 impl GetCount<[char; 2], [char; 1]> for ExpansionStruct<[char; 2], [char; 1]> {
     /// Count bigrams.
@@ -90,11 +89,11 @@ impl AdaptiveCorpus<[char; 1]> for Corpus {
             let mut exps = [c].expand(old, new);
 
             self.adapt_boundary_ngram(&mut exps.both, 0);
-            let bcount = sum!(exps.both);
+            let bcount = exps.sum(&[ExpansionKind::Both]);
             self.adapt_boundary_ngram(&mut exps.left, bcount);
             self.adapt_boundary_ngram(&mut exps.right, bcount);
 
-            let sum: u32 = sum!(exps.left, exps.right, exps.both);
+            let sum = exps.sum(&[ExpansionKind::Left, ExpansionKind::Right, ExpansionKind::Both]);
 
             self.chars[i] -= sum;
         }
